@@ -11,7 +11,11 @@ use color_eyre::eyre::{Context, Result, bail};
 use tracing::info;
 
 #[derive(Parser)]
-#[command(name = "pinch", about = "A plugin manager for Claude Code and pi")]
+#[command(
+    name = "pinch",
+    about = "A plugin manager for Claude Code and pi",
+    version = option_env!("PINCH_VERSION").unwrap_or("dev")
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
