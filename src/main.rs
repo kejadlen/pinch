@@ -75,23 +75,30 @@ fn main() -> Result<()> {
 fn do_update(names: &[String]) -> Result<()> {
     let all_plugins = config::load().context("failed to load config")?;
 
-    let plugins: Vec<_> = if names.is_empty() {
-        all_plugins
+    let (plugins, mut lockfile) = if names.is_empty() {
+        (all_plugins, lockfile::Lockfile { plugins: vec![] })
     } else {
-        all_plugins
+        let known: std::collections::HashSet<&str> =
+            all_plugins.iter().map(|p| p.name.as_str()).collect();
+        let mut unknown: Vec<_> = names.iter().filter(|n| !known.contains(n.as_str())).collect();
+        if !unknown.is_empty() {
+            unknown.sort();
+            bail!(
+                "unknown plugin{}: {}",
+                if unknown.len() == 1 { "" } else { "s" },
+                unknown.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+            );
+        }
+
+        let requested: std::collections::HashSet<&str> =
+            names.iter().map(|s| s.as_str()).collect();
+        let plugins = all_plugins
             .into_iter()
-            .filter(|p| names.contains(&p.name))
-            .collect()
-    };
-
-    if plugins.is_empty() && !names.is_empty() {
-        bail!("no plugins found matching: {}", names.join(", "));
-    }
-
-    let mut lockfile = if names.is_empty() {
-        lockfile::Lockfile { plugins: vec![] }
-    } else {
-        lockfile::load().unwrap_or_else(|_| lockfile::Lockfile { plugins: vec![] })
+            .filter(|p| requested.contains(p.name.as_str()))
+            .collect();
+        let lockfile =
+            lockfile::load().unwrap_or_else(|_| lockfile::Lockfile { plugins: vec![] });
+        (plugins, lockfile)
     };
 
     let repos_dir = paths::repos_dir();
