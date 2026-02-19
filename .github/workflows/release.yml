@@ -11,9 +11,11 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: macos-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,10 +58,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  dotslash:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Generate DotSlash file
         uses: facebook/dotslash-publish-release@v1
         with:
           config: .github/dotslash-config.json
-          tag: v${{ steps.version.outputs.version }}
+          tag: v${{ needs.build.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
