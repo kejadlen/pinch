@@ -32,8 +32,7 @@ pub fn clone_or_fetch(repo_path: &Path, src: &str) -> Result<()> {
             bail!("git fetch failed for {}", src);
         }
     } else {
-        std::fs::create_dir_all(repo_path)
-            .with_context(|| format!("failed to create {}", repo_path.display()))?;
+        fs_err::create_dir_all(repo_path)?;
         let status = Command::new("git")
             .args(["clone", "--quiet", "--bare", src, "."])
             .current_dir(repo_path)
@@ -91,7 +90,7 @@ pub fn ensure_worktree(repo_path: &Path, rev: &str) -> Result<PathBuf> {
             bail!("git checkout failed for {} in {}", rev, wt_path.display());
         }
     } else {
-        std::fs::create_dir_all(wt_path.parent().unwrap())?;
+        fs_err::create_dir_all(wt_path.parent().unwrap())?;
         let status = Command::new("git")
             .args([
                 "worktree",
@@ -139,7 +138,7 @@ fn visit_worktree_dirs(
     dir: &Path,
     used: &std::collections::HashMap<PathBuf, std::collections::HashSet<String>>,
 ) -> Result<()> {
-    let entries = match std::fs::read_dir(dir) {
+    let entries = match fs_err::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return Ok(()),
     };
@@ -157,7 +156,7 @@ fn visit_worktree_dirs(
             let repo_path = path.parent().unwrap();
             let used_revs = used.get(repo_path);
 
-            for wt_entry in std::fs::read_dir(&path)? {
+            for wt_entry in fs_err::read_dir(&path)? {
                 let wt_entry = wt_entry?;
                 let wt_name = wt_entry.file_name();
                 let wt_name_str = wt_name.to_string_lossy();
@@ -173,7 +172,7 @@ fn visit_worktree_dirs(
                         .status();
                     // If that fails, just remove the directory
                     if wt_path.exists() {
-                        std::fs::remove_dir_all(&wt_path)?;
+                        fs_err::remove_dir_all(&wt_path)?;
                     }
                     info!("pruned worktree: {}", wt_path.display());
                 }

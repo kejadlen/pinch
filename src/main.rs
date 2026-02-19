@@ -1,3 +1,5 @@
+#![deny(clippy::disallowed_methods)]
+
 mod config;
 mod git;
 mod lockfile;
@@ -193,7 +195,7 @@ fn do_install() -> Result<()> {
             );
         }
 
-        for entry in std::fs::read_dir(&skills_source)? {
+        for entry in fs_err::read_dir(&skills_source)? {
             let entry = entry?;
             if !entry.path().is_dir() {
                 continue;
@@ -204,12 +206,7 @@ fn do_install() -> Result<()> {
 
             // Remove existing symlink if present
             if symlink_path.symlink_metadata().is_ok() {
-                std::fs::remove_file(&symlink_path).with_context(|| {
-                    format!(
-                        "failed to remove existing symlink: {}",
-                        symlink_path.display()
-                    )
-                })?;
+                fs_err::remove_file(&symlink_path)?;
             }
 
             std::os::unix::fs::symlink(entry.path(), &symlink_path).with_context(|| {
@@ -229,7 +226,7 @@ fn do_install() -> Result<()> {
         }
     }
 
-    for entry in std::fs::read_dir(&skills_dir)? {
+    for entry in fs_err::read_dir(&skills_dir)? {
         let entry = entry?;
         let path = entry.path();
 
@@ -242,11 +239,11 @@ fn do_install() -> Result<()> {
         let name_str = name.to_string_lossy();
 
         // Only touch symlinks pointing into our cache
-        if let Ok(target) = std::fs::read_link(&path)
+        if let Ok(target) = fs_err::read_link(&path)
             && target.starts_with(&cache_dir)
             && !installed_skills.contains(&name)
         {
-            std::fs::remove_file(&path)?;
+            fs_err::remove_file(&path)?;
             info!("removed stale symlink: {}", name_str);
         }
     }

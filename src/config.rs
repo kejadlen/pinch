@@ -24,8 +24,7 @@ pub fn load() -> Result<Vec<Plugin>> {
         );
     }
 
-    let mut entries: Vec<_> = std::fs::read_dir(&config_dir)
-        .with_context(|| format!("failed to read config dir: {}", config_dir.display()))?
+    let mut entries: Vec<_> = fs_err::read_dir(&config_dir)?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|ext| ext == "yml"))
         .collect();
@@ -41,8 +40,7 @@ pub fn load() -> Result<Vec<Plugin>> {
 
     for entry in &entries {
         let path = entry.path();
-        let contents = std::fs::read_to_string(&path)
-            .with_context(|| format!("failed to read {}", path.display()))?;
+        let contents = fs_err::read_to_string(&path)?;
         let file: ConfigFile = serde_yml::from_str(&contents)
             .with_context(|| format!("failed to parse {}", path.display()))?;
 

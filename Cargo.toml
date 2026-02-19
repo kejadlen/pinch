@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 clap = { version = "*", features = ["derive"] }
 color-eyre = "*"
+fs-err = "*"
 tracing = "*"
 tracing-subscriber = "*"
 serde = { version = "*", features = ["derive"] }

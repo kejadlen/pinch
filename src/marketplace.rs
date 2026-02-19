@@ -24,8 +24,7 @@ pub fn find_plugin_source(
 ) -> Result<String> {
     let manifest_path = repo_path.join(marketplace_override.unwrap_or(DEFAULT_PATH));
 
-    let contents = std::fs::read_to_string(&manifest_path)
-        .with_context(|| format!("failed to read {}", manifest_path.display()))?;
+    let contents = fs_err::read_to_string(&manifest_path)?;
 
     let marketplace: Marketplace = serde_json::from_str(&contents)
         .with_context(|| format!("failed to parse {}", manifest_path.display()))?;

@@ -18,8 +18,7 @@ pub struct LockedPlugin {
 
 pub fn load() -> Result<Lockfile> {
     let path = crate::paths::lockfile_path()?;
-    let contents = std::fs::read_to_string(&path)
-        .with_context(|| format!("failed to read lockfile: {}", path.display()))?;
+    let contents = fs_err::read_to_string(&path)?;
     let lockfile: Lockfile = serde_yml::from_str(&contents)
         .with_context(|| format!("failed to parse lockfile: {}", path.display()))?;
     Ok(lockfile)
@@ -28,7 +27,6 @@ pub fn load() -> Result<Lockfile> {
 pub fn save(lockfile: &Lockfile) -> Result<()> {
     let path = crate::paths::lockfile_path()?;
     let contents = serde_yml::to_string(lockfile).context("failed to serialize lockfile")?;
-    std::fs::write(&path, contents)
-        .with_context(|| format!("failed to write lockfile: {}", path.display()))?;
+    fs_err::write(&path, contents)?;
     Ok(())
 }
