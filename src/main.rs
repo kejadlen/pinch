@@ -80,24 +80,28 @@ fn do_update(names: &[String]) -> Result<()> {
     } else {
         let known: std::collections::HashSet<&str> =
             all_plugins.iter().map(|p| p.name.as_str()).collect();
-        let mut unknown: Vec<_> = names.iter().filter(|n| !known.contains(n.as_str())).collect();
+        let mut unknown: Vec<_> = names
+            .iter()
+            .filter(|n| !known.contains(n.as_str()))
+            .collect();
         if !unknown.is_empty() {
             unknown.sort();
             bail!(
-                "unknown plugin{}: {}",
-                if unknown.len() == 1 { "" } else { "s" },
-                unknown.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                "unknown plugin(s): {}",
+                unknown
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
         }
 
-        let requested: std::collections::HashSet<&str> =
-            names.iter().map(|s| s.as_str()).collect();
+        let requested: std::collections::HashSet<&str> = names.iter().map(|s| s.as_str()).collect();
         let plugins = all_plugins
             .into_iter()
             .filter(|p| requested.contains(p.name.as_str()))
             .collect();
-        let lockfile =
-            lockfile::load().unwrap_or_else(|_| lockfile::Lockfile { plugins: vec![] });
+        let lockfile = lockfile::load().unwrap_or_else(|_| lockfile::Lockfile { plugins: vec![] });
         (plugins, lockfile)
     };
 
