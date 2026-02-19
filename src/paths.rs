@@ -28,8 +28,7 @@ pub fn lockfile_path() -> Result<PathBuf> {
 
 pub fn skills_dir() -> Result<PathBuf> {
     let path = home_dir().join(".claude").join("skills");
-    fs_err::create_dir_all(&path)
-        .with_context(|| format!("failed to create skills dir: {}", path.display()))?;
+    fs_err::create_dir_all(&path)?;
     Ok(path)
 }
 
