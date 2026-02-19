@@ -84,12 +84,12 @@ SHA for each skill. `install` reads from the lockfile; `update` writes to it.
 
 ```yml
 plugins:
-  - name: jj
+  jj:
     src: https://github.com/user/skills-repo
     path: skills/jj
     rev: abc123def456...     # resolved commit SHA
 
-  - name: gh-pr
+  gh-pr:
     src: https://github.com/user/skills-repo
     path: skills/gh-pr
     rev: abc123def456...
