@@ -19,8 +19,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@stable
-
       - name: Calculate version
         id: version
         run: |
