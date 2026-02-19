@@ -1,6 +1,7 @@
 mod config;
 mod git;
 mod lockfile;
+mod marketplace;
 mod paths;
 
 use clap::{Parser, Subcommand};
@@ -106,6 +107,16 @@ fn do_update(names: &[String]) -> Result<()> {
         let rev = git::resolve_ref(&repo_path, &plugin.r#ref)?;
         info!("  {} -> {}", plugin.r#ref, &rev[..12]);
 
+        // Checkout to read marketplace.json and discover skill path
+        git::checkout(&repo_path, &rev)?;
+        let source = marketplace::find_plugin_source(
+            &repo_path,
+            &plugin.name,
+            plugin.marketplace.as_deref(),
+        )?;
+        let path = source.trim_start_matches("./").to_string();
+        info!("  found at {}", path);
+
         // Remove existing entry for this plugin if doing selective update
         if !names.is_empty() {
             lockfile.plugins.retain(|p| p.name != plugin.name);
@@ -114,7 +125,7 @@ fn do_update(names: &[String]) -> Result<()> {
         lockfile.plugins.push(lockfile::LockedPlugin {
             name: plugin.name.clone(),
             src: plugin.src.clone(),
-            path: plugin.path.clone(),
+            path,
             rev,
         });
     }

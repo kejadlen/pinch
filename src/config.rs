@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 
 use color_eyre::eyre::{Context, Result, bail};
@@ -6,15 +7,24 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct ConfigFile {
     #[serde(default)]
-    pub plugins: Vec<Plugin>,
+    pub plugins: BTreeMap<String, PluginEntry>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct PluginEntry {
+    pub src: String,
+    pub r#ref: String,
+    /// Override path to marketplace.json within the repo.
+    /// Defaults to `.claude-plugin/marketplace.json`.
+    pub marketplace: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Plugin {
     pub name: String,
     pub src: String,
-    pub path: String,
     pub r#ref: String,
+    pub marketplace: Option<String>,
 }
 
 #[derive(Debug)]
@@ -54,15 +64,20 @@ pub fn load() -> Result<Config> {
         let file: ConfigFile = serde_yml::from_str(&contents)
             .with_context(|| format!("failed to parse {}", path.display()))?;
 
-        for plugin in file.plugins {
-            if !seen_names.insert(plugin.name.clone()) {
+        for (name, plugin) in file.plugins {
+            if !seen_names.insert(name.clone()) {
                 bail!(
                     "duplicate plugin name '{}' (found in {})",
-                    plugin.name,
+                    name,
                     path.display()
                 );
             }
-            plugins.push(plugin);
+            plugins.push(Plugin {
+                name,
+                src: plugin.src,
+                r#ref: plugin.r#ref,
+                marketplace: plugin.marketplace,
+            });
         }
     }
 

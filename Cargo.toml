@@ -9,5 +9,6 @@ color-eyre = "*"
 tracing = "*"
 tracing-subscriber = "*"
 serde = { version = "*", features = ["derive"] }
+serde_json = "*"
 serde_yml = "*"
 xdg = "*"

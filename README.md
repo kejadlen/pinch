@@ -43,19 +43,19 @@ alphabetically. Duplicate skill names across files are a hard error.
 
 ```yml
 plugins:
-  - name: jj
+  jj:
     src: https://github.com/user/skills-repo
-    path: skills/jj          # path within the repo to the skill directory
     ref: main                 # branch or tag; resolved to a commit SHA in lockfile
 
-  - name: gh-pr
+  gh-pr:
     src: https://github.com/user/skills-repo
-    path: skills/gh-pr
     ref: v1.2.0
+    marketplace: custom/path/marketplace.json  # optional override
 ```
 
-A single repo can provide multiple skills — just add more entries with different
-`path` values.
+The plugin path within the repo is discovered from the marketplace manifest
+(`.claude-plugin/marketplace.json` by default). The `marketplace` field lets you
+override this path per plugin.
 
 Removing a skill is done by removing it from the config and re-running
 `pinch install`.
