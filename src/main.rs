@@ -32,24 +32,39 @@ enum Command {
     },
 }
 
+enum Action {
+    Update(Vec<String>),
+    Install,
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
-    match cli.command {
+    let actions = match cli.command {
         Command::Install { update } => {
+            let mut actions = vec![];
             if update {
-                do_update(&[])?;
+                actions.push(Action::Update(vec![]));
             }
-            do_install()?;
+            actions.push(Action::Install);
+            actions
         }
         Command::Update { install, names } => {
-            do_update(&names)?;
+            let mut actions = vec![Action::Update(names)];
             if install {
-                do_install()?;
+                actions.push(Action::Install);
             }
+            actions
+        }
+    };
+
+    for action in actions {
+        match action {
+            Action::Update(names) => do_update(&names)?,
+            Action::Install => do_install()?,
         }
     }
 
