@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::{Result, WrapErr};
 use xdg::BaseDirectories;
 
 fn base_dirs() -> BaseDirectories {
@@ -17,13 +17,13 @@ pub fn config_dir() -> PathBuf {
 pub fn repos_dir() -> Result<PathBuf> {
     base_dirs()
         .create_cache_directory("repos")
-        .context("failed to create repos dir")
+        .wrap_err("failed to create repos dir")
 }
 
 pub fn lockfile_path() -> Result<PathBuf> {
     base_dirs()
         .place_data_file("pinch-lock.yml")
-        .context("failed to create data dir")
+        .wrap_err("failed to create data dir")
 }
 
 pub fn skills_dir() -> Result<PathBuf> {

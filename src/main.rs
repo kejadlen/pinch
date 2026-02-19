@@ -7,7 +7,7 @@ mod marketplace;
 mod paths;
 
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::{Context, Result, bail};
+use color_eyre::eyre::{Result, WrapErr, bail};
 use tracing::info;
 
 #[derive(Parser)]
@@ -79,7 +79,7 @@ fn main() -> Result<()> {
 }
 
 fn do_update(names: &[String]) -> Result<()> {
-    let all_plugins = config::load().context("failed to load config")?;
+    let all_plugins = config::load().wrap_err("failed to load config")?;
 
     let (plugins, mut lockfile) = if names.is_empty() {
         (
@@ -142,13 +142,13 @@ fn do_update(names: &[String]) -> Result<()> {
         );
     }
 
-    lockfile::save(&lockfile).context("failed to save lockfile")?;
+    lockfile::save(&lockfile).wrap_err("failed to save lockfile")?;
     info!("lockfile updated");
     Ok(())
 }
 
 fn do_install() -> Result<()> {
-    let lockfile = lockfile::load().context("no lockfile found — run `pinch update` first")?;
+    let lockfile = lockfile::load().wrap_err("no lockfile found — run `pinch update` first")?;
 
     let repos_dir = paths::repos_dir()?;
     let skills_dir = paths::skills_dir()?;
@@ -257,7 +257,7 @@ fn symlink_entries(
             fs_err::remove_file(&symlink_path)?;
         }
 
-        std::os::unix::fs::symlink(entry.path(), &symlink_path).with_context(|| {
+        std::os::unix::fs::symlink(entry.path(), &symlink_path).wrap_err_with(|| {
             format!(
                 "failed to create symlink: {} -> {}",
                 symlink_path.display(),
