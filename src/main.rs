@@ -105,9 +105,7 @@ fn do_update(names: &[String]) -> Result<()> {
         (plugins, lockfile)
     };
 
-    let repos_dir = paths::repos_dir();
-    std::fs::create_dir_all(&repos_dir)
-        .with_context(|| format!("failed to create repos dir: {}", repos_dir.display()))?;
+    let repos_dir = paths::repos_dir()?;
 
     for plugin in &plugins {
         info!("updating {}...", plugin.name);
@@ -144,11 +142,8 @@ fn do_update(names: &[String]) -> Result<()> {
 fn do_install() -> Result<()> {
     let lockfile = lockfile::load().context("no lockfile found — run `pinch update` first")?;
 
-    let repos_dir = paths::repos_dir();
-    let skills_dir = paths::skills_dir();
-    std::fs::create_dir_all(&skills_dir)
-        .with_context(|| format!("failed to create skills dir: {}", skills_dir.display()))?;
-
+    let repos_dir = paths::repos_dir()?;
+    let skills_dir = paths::skills_dir()?;
     let cache_dir = paths::cache_dir();
 
     for plugin in &lockfile.plugins {

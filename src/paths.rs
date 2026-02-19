@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use color_eyre::eyre::{Context, Result};
 use xdg::BaseDirectories;
 
 fn base_dirs() -> BaseDirectories {
@@ -13,26 +14,29 @@ pub fn config_dir() -> PathBuf {
         .join("conf.d")
 }
 
+pub fn repos_dir() -> Result<PathBuf> {
+    base_dirs()
+        .create_cache_directory("repos")
+        .context("failed to create repos dir")
+}
+
+pub fn lockfile_path() -> Result<PathBuf> {
+    base_dirs()
+        .place_data_file("pinch-lock.yml")
+        .context("failed to create data dir")
+}
+
+pub fn skills_dir() -> Result<PathBuf> {
+    let path = home_dir().join(".claude").join("skills");
+    std::fs::create_dir_all(&path)
+        .with_context(|| format!("failed to create skills dir: {}", path.display()))?;
+    Ok(path)
+}
+
 pub fn cache_dir() -> PathBuf {
     base_dirs()
         .get_cache_home()
         .expect("XDG cache home not set")
-}
-
-pub fn repos_dir() -> PathBuf {
-    cache_dir().join("repos")
-}
-
-pub fn data_dir() -> PathBuf {
-    base_dirs().get_data_home().expect("XDG data home not set")
-}
-
-pub fn lockfile_path() -> PathBuf {
-    data_dir().join("pinch-lock.yml")
-}
-
-pub fn skills_dir() -> PathBuf {
-    home_dir().join(".claude").join("skills")
 }
 
 fn home_dir() -> PathBuf {
