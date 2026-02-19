@@ -122,6 +122,12 @@ Optional: `pinch update --install` — runs update then install in one shot.
 
 Optional: `pinch update <name>` — updates only the named skill(s).
 
+## Development
+
+This project was built entirely through AI-assisted development — pair
+programming with Claude Code (and pi). The humans provided direction, design
+decisions, and review; the AI wrote the code, tests, and docs.
+
 ## Non-goals (for now)
 
 - Dependencies between packages
