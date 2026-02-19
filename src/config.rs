@@ -36,11 +36,9 @@ pub fn load() -> Result<Vec<Plugin>> {
         bail!("no .yml files found in {}", config_dir.display());
     }
 
-    let mut marketplaces: BTreeMap<String, MarketplaceEntry> = BTreeMap::new();
     let mut plugins = Vec::new();
     let mut seen_names = HashSet::new();
 
-    // First pass: collect all marketplaces
     for entry in &entries {
         let path = entry.path();
         let contents = std::fs::read_to_string(&path)
@@ -48,25 +46,8 @@ pub fn load() -> Result<Vec<Plugin>> {
         let file: ConfigFile = serde_yml::from_str(&contents)
             .with_context(|| format!("failed to parse {}", path.display()))?;
 
-        for (name, mkt) in file.marketplaces {
-            if marketplaces.contains_key(&name) {
-                bail!(
-                    "duplicate marketplace '{}' (found in {})",
-                    name,
-                    path.display()
-                );
-            }
-            marketplaces.insert(name, mkt);
-        }
-    }
-
-    // Second pass: resolve plugins
-    for entry in &entries {
-        let path = entry.path();
-        let contents = std::fs::read_to_string(&path)
-            .with_context(|| format!("failed to read {}", path.display()))?;
-        let file: ConfigFile = serde_yml::from_str(&contents)
-            .with_context(|| format!("failed to parse {}", path.display()))?;
+        // Marketplaces are scoped to this file
+        let marketplaces = &file.marketplaces;
 
         for (name, entry) in file.plugins {
             if !seen_names.insert(name.clone()) {
@@ -81,9 +62,10 @@ pub fn load() -> Result<Vec<Plugin>> {
                 Some(mkt_name) => {
                     let mkt = marketplaces.get(&mkt_name).ok_or_else(|| {
                         color_eyre::eyre::eyre!(
-                            "plugin '{}' references unknown marketplace '{}'",
+                            "plugin '{}' references unknown marketplace '{}' (in {})",
                             name,
-                            mkt_name
+                            mkt_name,
+                            path.display()
                         )
                     })?;
                     (
@@ -122,17 +104,13 @@ pub fn load() -> Result<Vec<Plugin>> {
 struct MarketplaceEntry {
     src: String,
     version: String,
-    /// Override path to marketplace.json within the repo.
     manifest: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct PluginEntry {
-    /// Git repo URL. Required if no marketplace.
     src: Option<String>,
-    /// Git version (branch/tag). Required if no marketplace (optional override with marketplace).
     version: Option<String>,
-    /// Name of a marketplace defined in the config.
     marketplace: Option<String>,
 }
 

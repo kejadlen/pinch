@@ -12,8 +12,12 @@ anything else.
 A **skill** is a directory containing a `SKILL.md` file (and optionally other
 files). Claude and pi discover skills by scanning `~/.claude/skills/<name>/`.
 
+A **marketplace** is a git repo that contains one or more plugins, described by
+a `.claude-plugin/marketplace.json` manifest.
+
 A **package** is a git repo that contains one or more skills. The repo is cloned
-into pinch's cache; individual skills are symlinked into `~/.claude/skills/`.
+(bare) into pinch's cache; worktrees are created per revision so multiple
+versions can coexist. Individual skills are symlinked into `~/.claude/skills/`.
 
 ## Directory layout
 
@@ -26,20 +30,25 @@ into pinch's cache; individual skills are symlinked into `~/.claude/skills/`.
 ~/.cache/pinch/            # managed by pinch
   repos/
     github.com/
-      user/repo/           # bare or full clone
+      user/repo.git/                   # bare clone
+        pinch-worktrees/
+          abc123def456/                # worktree at rev abc123def456
+          def789012345/                # worktree at rev def789012345
 
 ~/.local/share/pinch/
   pinch-lock.yml          # lockfile
 
 ~/.claude/skills/
-  jj -> ~/.cache/pinch/repos/github.com/user/repo/skills/jj
-  gh-pr -> ~/.cache/pinch/repos/github.com/user/repo/skills/gh-pr
+  jj -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/abc123def456/plugins/jj/skills/jj
+  gh-pr -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/def789012345/plugins/gh-pr/skills/gh-pr
 ```
 
 ## Config (manifest)
 
 Config files live in `~/.config/pinch/conf.d/`. All `.yml` files are merged
-alphabetically. Duplicate skill names across files are a hard error.
+alphabetically. Duplicate plugin names across files are a hard error.
+Marketplace definitions are scoped per-file — the same marketplace name can
+appear in different files at different versions.
 
 ```yml
 marketplaces:

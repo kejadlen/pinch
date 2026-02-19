@@ -105,13 +105,10 @@ fn do_update(names: &[String]) -> Result<()> {
         let rev = git::resolve_ref(&repo_path, &plugin.version)?;
         info!("  {} -> {}", plugin.version, &rev[..12]);
 
-        // Checkout to read marketplace.json and discover skill path
-        git::checkout(&repo_path, &rev)?;
-        let source = marketplace::find_plugin_source(
-            &repo_path,
-            &plugin.name,
-            plugin.marketplace.as_deref(),
-        )?;
+        // Create worktree to read marketplace.json and discover skill path
+        let wt_path = git::ensure_worktree(&repo_path, &rev)?;
+        let source =
+            marketplace::find_plugin_source(&wt_path, &plugin.name, plugin.marketplace.as_deref())?;
         let path = source.trim_start_matches("./").to_string();
         info!("  found at {}", path);
 
@@ -145,9 +142,9 @@ fn do_install() -> Result<()> {
 
     for plugin in &lockfile.plugins {
         let repo_path = git::repo_path(&repos_dir, &plugin.src);
-        git::checkout(&repo_path, &plugin.rev)?;
+        let wt_path = git::ensure_worktree(&repo_path, &plugin.rev)?;
 
-        let skill_source = repo_path.join(&plugin.path);
+        let skill_source = wt_path.join(&plugin.path);
         if !skill_source.is_dir() {
             bail!(
                 "plugin '{}': path '{}' does not exist in repo at rev {}",
