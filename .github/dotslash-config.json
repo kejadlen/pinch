@@ -1,0 +1,12 @@
+{
+  "outputs": {
+    "pinch": {
+      "platforms": {
+        "macos-aarch64": {
+          "regex": "^pinch-aarch64-apple-darwin\\.tar\\.gz$",
+          "path": "pinch"
+        }
+      }
+    }
+  }
+}

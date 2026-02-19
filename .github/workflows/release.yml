@@ -41,7 +41,7 @@ jobs:
       - name: Build
         run: |
           PINCH_VERSION="${{ steps.version.outputs.version }}" cargo build --release
-          cp target/release/pinch pinch-aarch64-apple-darwin
+          tar -czf pinch-aarch64-apple-darwin.tar.gz -C target/release pinch
 
       - name: Publish
         run: |
@@ -52,6 +52,14 @@ jobs:
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
             --generate-notes \
-            pinch-aarch64-apple-darwin
+            pinch-aarch64-apple-darwin.tar.gz
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Generate DotSlash file
+        uses: facebook/dotslash-publish-release@v1
+        with:
+          config: .github/dotslash-config.json
+          tag: v${{ steps.version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
