@@ -253,7 +253,13 @@ fn symlink_entries(
         let name = entry.file_name();
         let symlink_path = target_dir.join(&name);
 
-        if symlink_path.symlink_metadata().is_ok() {
+        // Skip if the symlink already points to the right place
+        if let Ok(existing) = fs_err::read_link(&symlink_path) {
+            if existing == entry.path() {
+                info!("up-to-date {subdir} {}", name.to_string_lossy());
+                installed.insert(name);
+                continue;
+            }
             fs_err::remove_file(&symlink_path)?;
         }
 
