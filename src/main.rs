@@ -212,6 +212,9 @@ fn do_install() -> Result<()> {
         }
     }
 
+    // Clean up stale worktrees
+    git::prune_worktrees(&repos_dir, &lockfile)?;
+
     info!("install complete");
     Ok(())
 }

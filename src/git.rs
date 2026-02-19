@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use color_eyre::eyre::{Context, Result, bail};
+use tracing::info;
 
 /// Derive a bare repo path from a remote URL.
 /// e.g. "https://github.com/user/repo" -> repos_dir/github.com/user/repo.git
@@ -113,4 +114,74 @@ pub fn ensure_worktree(repo_path: &Path, rev: &str) -> Result<PathBuf> {
     }
 
     Ok(wt_path)
+}
+
+/// Remove worktrees that aren't referenced by the lockfile.
+pub fn prune_worktrees(repos_dir: &Path, lockfile: &crate::lockfile::Lockfile) -> Result<()> {
+    use std::collections::{HashMap, HashSet};
+
+    // Build a map: repo_path -> set of used rev prefixes
+    let mut used: HashMap<PathBuf, HashSet<String>> = HashMap::new();
+    for plugin in &lockfile.plugins {
+        let rp = repo_path(repos_dir, &plugin.src);
+        used.entry(rp)
+            .or_default()
+            .insert(plugin.rev[..12].to_string());
+    }
+
+    // Walk all bare repos looking for pinch-worktrees dirs
+    visit_worktree_dirs(repos_dir, &used)?;
+
+    Ok(())
+}
+
+fn visit_worktree_dirs(
+    dir: &Path,
+    used: &std::collections::HashMap<PathBuf, std::collections::HashSet<String>>,
+) -> Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(()),
+    };
+
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+
+        if !path.is_dir() {
+            continue;
+        }
+
+        if path.file_name().is_some_and(|n| n == "pinch-worktrees") {
+            // This is a worktrees dir inside a bare repo
+            let repo_path = path.parent().unwrap();
+            let used_revs = used.get(repo_path);
+
+            for wt_entry in std::fs::read_dir(&path)? {
+                let wt_entry = wt_entry?;
+                let wt_name = wt_entry.file_name();
+                let wt_name_str = wt_name.to_string_lossy();
+
+                let is_used = used_revs.is_some_and(|revs| revs.contains(wt_name_str.as_ref()));
+
+                if !is_used {
+                    let wt_path = wt_entry.path();
+                    // Remove the git worktree properly
+                    let _ = std::process::Command::new("git")
+                        .args(["worktree", "remove", "--force", &wt_path.to_string_lossy()])
+                        .current_dir(repo_path)
+                        .status();
+                    // If that fails, just remove the directory
+                    if wt_path.exists() {
+                        std::fs::remove_dir_all(&wt_path)?;
+                    }
+                    info!("pruned worktree: {}", wt_path.display());
+                }
+            }
+        } else {
+            visit_worktree_dirs(&path, used)?;
+        }
+    }
+
+    Ok(())
 }
