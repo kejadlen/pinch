@@ -20,7 +20,7 @@ This runs `cargo fmt`, `cargo check`, and `cargo clippy`. Always run `just` befo
 
 See README.md for the full design. Key points:
 
-- Only skills are supported. Fail loudly for anything else.
+- Only skills and commands are supported. Fail loudly for anything else.
 - `update` reads config, resolves git refs to SHAs, writes lockfile. Does not touch symlinks.
 - `install` reads lockfile, checks out repos, creates symlinks in ~/.claude/skills/. Does not read config.
 - Cleanup removes symlinks pointing into ~/.cache/pinch/ that aren't in the lockfile.

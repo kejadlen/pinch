@@ -32,6 +32,12 @@ pub fn skills_dir() -> Result<PathBuf> {
     Ok(path)
 }
 
+pub fn commands_dir() -> Result<PathBuf> {
+    let path = home_dir().join(".claude").join("commands");
+    fs_err::create_dir_all(&path)?;
+    Ok(path)
+}
+
 pub fn cache_dir() -> PathBuf {
     base_dirs()
         .get_cache_home()

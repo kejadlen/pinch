@@ -1,21 +1,24 @@
 # pinch
 
 A plugin manager for Claude Code (and [pi](https://github.com/nichochar/pi-coding-agent),
-which reads from the same `~/.claude/skills/` directory). Installs skills as
-symlinks. Rust, single binary, keep it simple.
+which reads from the same `~/.claude/skills/` directory). Installs skills and
+commands as symlinks. Rust, single binary, keep it simple.
 
-Only skills are supported for now. Pinch will fail loudly if asked to manage
-anything else.
+Only skills and commands are supported for now. Pinch will fail loudly if asked
+to manage anything else.
 
 ## Concepts
 
 A **skill** is a directory containing a `SKILL.md` file (and optionally other
 files). Claude and pi discover skills by scanning `~/.claude/skills/<name>/`.
 
+A **command** is a slash command — an `.md` file (or directory) that Claude Code
+discovers by scanning `~/.claude/commands/`.
+
 A **marketplace** is a git repo that contains one or more plugins, described by
 a `.claude-plugin/marketplace.json` manifest.
 
-A **package** is a git repo that contains one or more skills. The repo is cloned
+A **package** is a git repo that contains one or more skills and/or commands. The repo is cloned
 (bare) into pinch's cache; worktrees are created per revision so multiple
 versions can coexist. Individual skills are symlinked into `~/.claude/skills/`.
 
@@ -41,6 +44,9 @@ versions can coexist. Individual skills are symlinked into `~/.claude/skills/`.
 ~/.claude/skills/
   jj -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/abc123def456/plugins/jj/skills/jj
   gh-pr -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/def789012345/plugins/gh-pr/skills/gh-pr
+
+~/.claude/commands/
+  deploy.md -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/abc123def456/plugins/ops/commands/deploy.md
 ```
 
 ## Config (manifest)
@@ -97,10 +103,10 @@ plugins:
 Reads the **lockfile** (not the config). For each entry:
 
 1. Ensures the repo is cloned/fetched and checked out at the locked `rev`.
-2. Creates a symlink from `~/.claude/skills/<name>` → the skill's path in the
-   cached repo.
-3. Removes any symlinks in `~/.claude/skills/` that point into
-   `~/.cache/pinch/` but are no longer in the lockfile.
+2. Creates symlinks from `~/.claude/skills/<name>` and `~/.claude/commands/<name>`
+   → the corresponding paths in the cached repo.
+3. Removes any symlinks in `~/.claude/skills/` and `~/.claude/commands/` that
+   point into `~/.cache/pinch/` but are no longer in the lockfile.
 
 Idempotent. Safe to run repeatedly.
 
@@ -131,6 +137,6 @@ decisions, and review; the AI wrote the code, tests, and docs.
 ## Non-goals (for now)
 
 - Dependencies between packages
-- Non-skill plugin types (extensions, themes, custom tools)
+- Other plugin types (extensions, themes, custom tools)
 - A registry / central index
 - Running in project-scoped mode (everything is user-global)
