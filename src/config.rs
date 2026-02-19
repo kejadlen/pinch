@@ -67,7 +67,7 @@ pub fn load() -> Result<Vec<Plugin>> {
             plugins.push(Plugin {
                 name,
                 src: mkt.src.clone(),
-                version: entry.version.unwrap_or_else(|| mkt.version.clone()),
+                version: mkt.version.clone(),
                 manifest: mkt.manifest.clone(),
             });
         }
@@ -86,7 +86,6 @@ struct MarketplaceEntry {
 #[derive(Deserialize)]
 struct PluginEntry {
     marketplace: String,
-    version: Option<String>,
 }
 
 #[derive(Deserialize)]
