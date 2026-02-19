@@ -13,7 +13,7 @@ pub struct Marketplace {
 #[derive(Debug, Deserialize)]
 pub struct MarketplacePlugin {
     pub name: String,
-    pub source: serde_json::Value,
+    pub source: String,
 }
 
 /// Find the source path for a plugin by name in the marketplace.json.
@@ -32,14 +32,7 @@ pub fn find_plugin_source(
 
     for mp in &marketplace.plugins {
         if mp.name == plugin_name {
-            return match &mp.source {
-                serde_json::Value::String(s) => Ok(s.clone()),
-                _ => bail!(
-                    "plugin '{}': unsupported source type in {} (only string paths are supported)",
-                    plugin_name,
-                    manifest_path.display()
-                ),
-            };
+            return Ok(mp.source.clone());
         }
     }
 
