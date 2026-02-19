@@ -1,0 +1,13 @@
+[package]
+name = "pinch"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "*", features = ["derive"] }
+color-eyre = "*"
+tracing = "*"
+tracing-subscriber = "*"
+serde = { version = "*", features = ["derive"] }
+serde_yml = "*"
+xdg = "*"
