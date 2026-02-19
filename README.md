@@ -60,22 +60,19 @@ appear in different files at different versions.
 marketplaces:
   my-skills:
     src: https://github.com/user/skills-repo
-    version: main                 # default version (branch/tag) for plugins from this marketplace
+    version: main                 # branch/tag to track
     manifest: custom/path/marketplace.json  # optional, defaults to .claude-plugin/marketplace.json
-
-plugins:
-  jj:
-    marketplace: my-skills
-
-  gh-pr:
-    marketplace: my-skills
+    plugins:
+      - jj
+      - gh-pr
 ```
 
-Every plugin references a named marketplace (inheriting `src`, `version`, and
-`manifest`). The plugin path within the repo is discovered from
-`.claude-plugin/marketplace.json` (or the marketplace's `manifest` override).
+Plugins are listed under their marketplace. Each plugin inherits the
+marketplace's `src`, `version`, and `manifest`. The plugin path within the repo
+is discovered from `.claude-plugin/marketplace.json` (or the marketplace's
+`manifest` override).
 
-Removing a skill is done by removing it from the config and re-running
+Removing a plugin is done by removing it from the config and re-running
 `pinch install`.
 
 ## Lockfile
