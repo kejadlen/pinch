@@ -147,13 +147,14 @@ fn do_install() -> Result<()> {
     let repos_dir = paths::repos_dir()?;
     let skills_dir = paths::skills_dir()?;
     let cache_dir = paths::cache_dir();
+    let mut installed_skills = std::collections::HashSet::new();
 
     for (name, plugin) in &lockfile.plugins {
         let repo_path = git::repo_path(&repos_dir, &plugin.src);
         let wt_path = git::ensure_worktree(&repo_path, &plugin.rev)?;
 
-        let skill_source = wt_path.join(&plugin.path);
-        if !skill_source.is_dir() {
+        let plugin_root = wt_path.join(&plugin.path);
+        if !plugin_root.is_dir() {
             bail!(
                 "plugin '{}': path '{}' does not exist in repo at rev {}",
                 name,
@@ -162,36 +163,70 @@ fn do_install() -> Result<()> {
             );
         }
 
-        // Verify it's a skill (has SKILL.md)
-        if !skill_source.join("SKILL.md").is_file() {
+        // Reject unsupported plugin types
+        for unsupported in ["commands", "agents", "hooks"] {
+            if plugin_root.join(unsupported).is_dir() {
+                bail!(
+                    "plugin '{}': contains '{}/' — only skills are supported",
+                    name,
+                    unsupported
+                );
+            }
+        }
+        for unsupported in [".mcp.json", ".lsp.json"] {
+            if plugin_root.join(unsupported).is_file() {
+                bail!(
+                    "plugin '{}': contains '{}' — only skills are supported",
+                    name,
+                    unsupported
+                );
+            }
+        }
+
+        // Symlink each skill under skills/
+        let skills_source = plugin_root.join("skills");
+        if !skills_source.is_dir() {
             bail!(
-                "plugin '{}': path '{}' has no SKILL.md — only skills are supported",
+                "plugin '{}': no skills/ directory in '{}'",
                 name,
                 plugin.path
             );
         }
 
-        let symlink_path = skills_dir.join(name);
+        for entry in std::fs::read_dir(&skills_source)? {
+            let entry = entry?;
+            if !entry.path().is_dir() {
+                continue;
+            }
 
-        // Remove existing symlink if present
-        if symlink_path.symlink_metadata().is_ok() {
-            std::fs::remove_file(&symlink_path).with_context(|| {
+            let skill_name = entry.file_name();
+            let symlink_path = skills_dir.join(&skill_name);
+
+            // Remove existing symlink if present
+            if symlink_path.symlink_metadata().is_ok() {
+                std::fs::remove_file(&symlink_path).with_context(|| {
+                    format!(
+                        "failed to remove existing symlink: {}",
+                        symlink_path.display()
+                    )
+                })?;
+            }
+
+            std::os::unix::fs::symlink(entry.path(), &symlink_path).with_context(|| {
                 format!(
-                    "failed to remove existing symlink: {}",
-                    symlink_path.display()
+                    "failed to create symlink: {} -> {}",
+                    symlink_path.display(),
+                    entry.path().display()
                 )
             })?;
+
+            info!(
+                "installed {} -> {}",
+                skill_name.to_string_lossy(),
+                entry.path().display()
+            );
+            installed_skills.insert(skill_name);
         }
-
-        std::os::unix::fs::symlink(&skill_source, &symlink_path).with_context(|| {
-            format!(
-                "failed to create symlink: {} -> {}",
-                symlink_path.display(),
-                skill_source.display()
-            )
-        })?;
-
-        info!("installed {} -> {}", name, skill_source.display());
     }
 
     for entry in std::fs::read_dir(&skills_dir)? {
@@ -209,7 +244,7 @@ fn do_install() -> Result<()> {
         // Only touch symlinks pointing into our cache
         if let Ok(target) = std::fs::read_link(&path)
             && target.starts_with(&cache_dir)
-            && !lockfile.plugins.contains_key(name_str.as_ref())
+            && !installed_skills.contains(&name)
         {
             std::fs::remove_file(&path)?;
             info!("removed stale symlink: {}", name_str);
