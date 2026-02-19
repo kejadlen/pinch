@@ -232,6 +232,7 @@ fn reject_unsupported(name: &str, plugin_root: &std::path::Path) -> Result<()> {
 /// Symlink entries from `plugin_root/<subdir>/` into `target_dir`.
 /// When `dirs_only` is true, non-directory entries are skipped (skills).
 /// Returns whether the source directory existed.
+// TODO: maybe re-use frork-lib for symlink management in the future
 fn symlink_entries(
     plugin_root: &std::path::Path,
     subdir: &str,
