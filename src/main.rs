@@ -76,7 +76,12 @@ fn do_update(names: &[String]) -> Result<()> {
     let all_plugins = config::load().context("failed to load config")?;
 
     let (plugins, mut lockfile) = if names.is_empty() {
-        (all_plugins, lockfile::Lockfile { plugins: vec![] })
+        (
+            all_plugins,
+            lockfile::Lockfile {
+                plugins: Default::default(),
+            },
+        )
     } else {
         let known: std::collections::HashSet<&str> =
             all_plugins.iter().map(|p| p.name.as_str()).collect();
@@ -121,17 +126,14 @@ fn do_update(names: &[String]) -> Result<()> {
         let path = source.trim_start_matches("./").to_string();
         info!("  found at {}", path);
 
-        // Remove existing entry for this plugin if doing selective update
-        if !names.is_empty() {
-            lockfile.plugins.retain(|p| p.name != plugin.name);
-        }
-
-        lockfile.plugins.push(lockfile::LockedPlugin {
-            name: plugin.name.clone(),
-            src: plugin.src.clone(),
-            path,
-            rev,
-        });
+        lockfile.plugins.insert(
+            plugin.name.clone(),
+            lockfile::LockedPlugin {
+                src: plugin.src.clone(),
+                path,
+                rev,
+            },
+        );
     }
 
     lockfile::save(&lockfile).context("failed to save lockfile")?;
@@ -146,7 +148,7 @@ fn do_install() -> Result<()> {
     let skills_dir = paths::skills_dir()?;
     let cache_dir = paths::cache_dir();
 
-    for plugin in &lockfile.plugins {
+    for (name, plugin) in &lockfile.plugins {
         let repo_path = git::repo_path(&repos_dir, &plugin.src);
         let wt_path = git::ensure_worktree(&repo_path, &plugin.rev)?;
 
@@ -154,7 +156,7 @@ fn do_install() -> Result<()> {
         if !skill_source.is_dir() {
             bail!(
                 "plugin '{}': path '{}' does not exist in repo at rev {}",
-                plugin.name,
+                name,
                 plugin.path,
                 &plugin.rev[..12]
             );
@@ -164,12 +166,12 @@ fn do_install() -> Result<()> {
         if !skill_source.join("SKILL.md").is_file() {
             bail!(
                 "plugin '{}': path '{}' has no SKILL.md — only skills are supported",
-                plugin.name,
+                name,
                 plugin.path
             );
         }
 
-        let symlink_path = skills_dir.join(&plugin.name);
+        let symlink_path = skills_dir.join(name);
 
         // Remove existing symlink if present
         if symlink_path.symlink_metadata().is_ok() {
@@ -189,12 +191,8 @@ fn do_install() -> Result<()> {
             )
         })?;
 
-        info!("installed {} -> {}", plugin.name, skill_source.display());
+        info!("installed {} -> {}", name, skill_source.display());
     }
-
-    // Clean up stale pinch-managed symlinks
-    let locked_names: std::collections::HashSet<_> =
-        lockfile.plugins.iter().map(|p| p.name.as_str()).collect();
 
     for entry in std::fs::read_dir(&skills_dir)? {
         let entry = entry?;
@@ -211,7 +209,7 @@ fn do_install() -> Result<()> {
         // Only touch symlinks pointing into our cache
         if let Ok(target) = std::fs::read_link(&path)
             && target.starts_with(&cache_dir)
-            && !locked_names.contains(name_str.as_ref())
+            && !lockfile.plugins.contains_key(name_str.as_ref())
         {
             std::fs::remove_file(&path)?;
             info!("removed stale symlink: {}", name_str);

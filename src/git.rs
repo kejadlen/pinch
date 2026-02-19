@@ -122,7 +122,7 @@ pub fn prune_worktrees(repos_dir: &Path, lockfile: &crate::lockfile::Lockfile) -
 
     // Build a map: repo_path -> set of used rev prefixes
     let mut used: HashMap<PathBuf, HashSet<String>> = HashMap::new();
-    for plugin in &lockfile.plugins {
+    for plugin in lockfile.plugins.values() {
         let rp = repo_path(repos_dir, &plugin.src);
         used.entry(rp)
             .or_default()

@@ -1,15 +1,16 @@
+use std::collections::BTreeMap;
+
 use color_eyre::eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lockfile {
     #[serde(default)]
-    pub plugins: Vec<LockedPlugin>,
+    pub plugins: BTreeMap<String, LockedPlugin>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockedPlugin {
-    pub name: String,
     pub src: String,
     pub path: String,
     pub rev: String,
@@ -26,9 +27,7 @@ pub fn load() -> Result<Lockfile> {
 
 pub fn save(lockfile: &Lockfile) -> Result<()> {
     let path = crate::paths::lockfile_path()?;
-    let mut sorted = lockfile.clone();
-    sorted.plugins.sort_by(|a, b| a.name.cmp(&b.name));
-    let contents = serde_yml::to_string(&sorted).context("failed to serialize lockfile")?;
+    let contents = serde_yml::to_string(lockfile).context("failed to serialize lockfile")?;
     std::fs::write(&path, contents)
         .with_context(|| format!("failed to write lockfile: {}", path.display()))?;
     Ok(())
