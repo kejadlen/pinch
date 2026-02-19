@@ -45,24 +45,24 @@ alphabetically. Duplicate skill names across files are a hard error.
 marketplaces:
   my-skills:
     src: https://github.com/user/skills-repo
-    ref: main                 # default ref for plugins from this marketplace
+    version: main                 # default version (branch/tag) for plugins from this marketplace
     manifest: custom/path/marketplace.json  # optional, defaults to .claude-plugin/marketplace.json
 
 plugins:
   jj:
-    marketplace: my-skills    # inherits src, ref, and manifest from the marketplace
+    marketplace: my-skills    # inherits src, version, and manifest from the marketplace
 
   gh-pr:
     marketplace: my-skills
-    ref: v1.2.0               # override the marketplace default ref
+    version: v1.2.0               # override the marketplace default
 
   one-off-skill:
     src: https://github.com/other/repo   # standalone plugin, no marketplace
-    ref: main
+    version: main
 ```
 
-Plugins can reference a named marketplace (inheriting `src` and `ref`) or
-specify `src`/`ref` directly. The plugin path within the repo is discovered
+Plugins can reference a named marketplace (inheriting `src` and `version`) or
+specify `src`/`version` directly. The plugin path within the repo is discovered
 from `.claude-plugin/marketplace.json` (or the marketplace's `manifest` override).
 
 Removing a skill is done by removing it from the config and re-running
@@ -109,7 +109,7 @@ Optional: `pinch install --update` — runs update then install in one shot.
 Reads the **config** (merged conf.d). For each skill:
 
 1. Fetches the repo.
-2. Resolves the `ref` (branch/tag) to a commit SHA.
+2. Resolves the `version` (branch/tag) to a commit SHA.
 3. Writes the lockfile.
 
 Does **not** touch symlinks or `~/.claude/skills/`.

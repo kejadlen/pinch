@@ -8,7 +8,7 @@ use serde::Deserialize;
 pub struct Plugin {
     pub name: String,
     pub src: String,
-    pub r#ref: String,
+    pub version: String,
     /// Path to marketplace.json within the repo.
     /// Defaults to `.claude-plugin/marketplace.json`.
     pub marketplace: Option<String>,
@@ -77,7 +77,7 @@ pub fn load() -> Result<Vec<Plugin>> {
                 );
             }
 
-            let (src, r#ref, marketplace_path) = match entry.marketplace {
+            let (src, version, marketplace_path) = match entry.marketplace {
                 Some(mkt_name) => {
                     let mkt = marketplaces.get(&mkt_name).ok_or_else(|| {
                         color_eyre::eyre::eyre!(
@@ -88,7 +88,7 @@ pub fn load() -> Result<Vec<Plugin>> {
                     })?;
                     (
                         mkt.src.clone(),
-                        entry.r#ref.unwrap_or_else(|| mkt.r#ref.clone()),
+                        entry.version.unwrap_or_else(|| mkt.version.clone()),
                         mkt.manifest.clone(),
                     )
                 }
@@ -99,17 +99,17 @@ pub fn load() -> Result<Vec<Plugin>> {
                             name
                         )
                     })?;
-                    let r#ref = entry.r#ref.ok_or_else(|| {
-                        color_eyre::eyre::eyre!("plugin '{}': 'ref' is required", name)
+                    let version = entry.version.ok_or_else(|| {
+                        color_eyre::eyre::eyre!("plugin '{}': 'version' is required", name)
                     })?;
-                    (src, r#ref, None)
+                    (src, version, None)
                 }
             };
 
             plugins.push(Plugin {
                 name,
                 src,
-                r#ref,
+                version,
                 marketplace: marketplace_path,
             });
         }
@@ -121,7 +121,7 @@ pub fn load() -> Result<Vec<Plugin>> {
 #[derive(Deserialize)]
 struct MarketplaceEntry {
     src: String,
-    r#ref: String,
+    version: String,
     /// Override path to marketplace.json within the repo.
     manifest: Option<String>,
 }
@@ -130,8 +130,8 @@ struct MarketplaceEntry {
 struct PluginEntry {
     /// Git repo URL. Required if no marketplace.
     src: Option<String>,
-    /// Git ref. Required if no marketplace (optional override with marketplace).
-    r#ref: Option<String>,
+    /// Git version (branch/tag). Required if no marketplace (optional override with marketplace).
+    version: Option<String>,
     /// Name of a marketplace defined in the config.
     marketplace: Option<String>,
 }

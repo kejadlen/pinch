@@ -102,8 +102,8 @@ fn do_update(names: &[String]) -> Result<()> {
         info!("updating {}...", plugin.name);
         let repo_path = git::repo_path(&repos_dir, &plugin.src);
         git::clone_or_fetch(&repo_path, &plugin.src)?;
-        let rev = git::resolve_ref(&repo_path, &plugin.r#ref)?;
-        info!("  {} -> {}", plugin.r#ref, &rev[..12]);
+        let rev = git::resolve_ref(&repo_path, &plugin.version)?;
+        info!("  {} -> {}", plugin.version, &rev[..12]);
 
         // Checkout to read marketplace.json and discover skill path
         git::checkout(&repo_path, &rev)?;
