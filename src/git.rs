@@ -115,8 +115,8 @@ pub fn ensure_worktree(repo_path: &Path, rev: &str) -> Result<PathBuf> {
     Ok(wt_path)
 }
 
-/// Remove worktrees that aren't referenced by the lockfile.
-pub fn prune_worktrees(repos_dir: &Path, lockfile: &crate::lockfile::Lockfile) -> Result<()> {
+/// Remove worktrees and repos that aren't referenced by the lockfile.
+pub fn prune(repos_dir: &Path, lockfile: &crate::lockfile::Lockfile) -> Result<()> {
     use std::collections::{HashMap, HashSet};
 
     // Build a map: repo_path -> set of used rev prefixes
@@ -128,13 +128,13 @@ pub fn prune_worktrees(repos_dir: &Path, lockfile: &crate::lockfile::Lockfile) -
             .insert(plugin.rev[..12].to_string());
     }
 
-    // Walk all bare repos looking for pinch-worktrees dirs
-    visit_worktree_dirs(repos_dir, &used)?;
+    // Walk all bare repos: prune stale worktrees, remove unused repos
+    visit_repos(repos_dir, &used)?;
 
     Ok(())
 }
 
-fn visit_worktree_dirs(
+fn visit_repos(
     dir: &Path,
     used: &std::collections::HashMap<PathBuf, std::collections::HashSet<String>>,
 ) -> Result<()> {
@@ -177,10 +177,29 @@ fn visit_worktree_dirs(
                     info!("pruned worktree: {}", wt_path.display());
                 }
             }
+        } else if path.join("HEAD").is_file() {
+            // This is a bare repo — remove it if no plugins reference it
+            if !used.contains_key(&path) {
+                fs_err::remove_dir_all(&path)?;
+                info!("removed unused repo: {}", path.display());
+            }
         } else {
-            visit_worktree_dirs(&path, used)?;
+            visit_repos(&path, used)?;
         }
     }
 
+    // Remove empty parent directories left behind
+    remove_empty_dirs(dir);
+
     Ok(())
+}
+
+/// Remove `dir` and its ancestors (up to but not including the repos root)
+/// if they're empty. Stops at the first non-empty directory.
+fn remove_empty_dirs(dir: &Path) {
+    if let Ok(mut entries) = fs_err::read_dir(dir)
+        && entries.next().is_none()
+    {
+        let _ = fs_err::remove_dir(dir);
+    }
 }
