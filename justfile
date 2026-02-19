@@ -1,3 +1,5 @@
+default: fmt check clippy
+
 check:
     cargo check
 
@@ -6,5 +8,3 @@ fmt:
 
 clippy:
     cargo clippy
-
-lint: fmt check clippy
