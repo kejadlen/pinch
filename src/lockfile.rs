@@ -1,13 +1,13 @@
 use color_eyre::eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lockfile {
     #[serde(default)]
     pub plugins: Vec<LockedPlugin>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockedPlugin {
     pub name: String,
     pub src: String,
@@ -30,7 +30,9 @@ pub fn save(lockfile: &Lockfile) -> Result<()> {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("failed to create data dir: {}", parent.display()))?;
     }
-    let contents = serde_yml::to_string(lockfile).context("failed to serialize lockfile")?;
+    let mut sorted = lockfile.clone();
+    sorted.plugins.sort_by(|a, b| a.name.cmp(&b.name));
+    let contents = serde_yml::to_string(&sorted).context("failed to serialize lockfile")?;
     std::fs::write(&path, contents)
         .with_context(|| format!("failed to write lockfile: {}", path.display()))?;
     Ok(())
