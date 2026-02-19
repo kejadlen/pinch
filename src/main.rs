@@ -101,7 +101,7 @@ fn do_update(names: &[String]) -> Result<()> {
             .into_iter()
             .filter(|p| requested.contains(p.name.as_str()))
             .collect();
-        let lockfile = lockfile::load().unwrap_or_else(|_| lockfile::Lockfile { plugins: vec![] });
+        let lockfile = lockfile::load()?;
         (plugins, lockfile)
     };
 
