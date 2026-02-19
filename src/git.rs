@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use color_eyre::eyre::{Context, Result, bail};
+use color_eyre::eyre::{Result, WrapErr, bail};
 use tracing::info;
 
 /// Derive a bare repo path from a remote URL.
@@ -27,7 +27,7 @@ pub fn clone_or_fetch(repo_path: &Path, src: &str) -> Result<()> {
             .args(["fetch", "--quiet", "origin"])
             .current_dir(repo_path)
             .status()
-            .context("failed to run git fetch")?;
+            .wrap_err("failed to run git fetch")?;
         if !status.success() {
             bail!("git fetch failed for {}", src);
         }
@@ -37,7 +37,7 @@ pub fn clone_or_fetch(repo_path: &Path, src: &str) -> Result<()> {
             .args(["clone", "--quiet", "--bare", src, "."])
             .current_dir(repo_path)
             .status()
-            .context("failed to run git clone")?;
+            .wrap_err("failed to run git clone")?;
         if !status.success() {
             bail!("git clone failed for {}", src);
         }
@@ -51,7 +51,7 @@ pub fn resolve_ref(repo_path: &Path, git_ref: &str) -> Result<String> {
         .args(["rev-parse", &format!("origin/{git_ref}")])
         .current_dir(repo_path)
         .output()
-        .context("failed to run git rev-parse")?;
+        .wrap_err("failed to run git rev-parse")?;
 
     if output.status.success() {
         return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
@@ -62,7 +62,7 @@ pub fn resolve_ref(repo_path: &Path, git_ref: &str) -> Result<String> {
         .args(["rev-parse", git_ref])
         .current_dir(repo_path)
         .output()
-        .context("failed to run git rev-parse")?;
+        .wrap_err("failed to run git rev-parse")?;
 
     if !output.status.success() {
         bail!(
@@ -85,7 +85,7 @@ pub fn ensure_worktree(repo_path: &Path, rev: &str) -> Result<PathBuf> {
             .args(["checkout", "--quiet", "--detach", rev])
             .current_dir(&wt_path)
             .status()
-            .context("failed to run git checkout in worktree")?;
+            .wrap_err("failed to run git checkout in worktree")?;
         if !status.success() {
             bail!("git checkout failed for {} in {}", rev, wt_path.display());
         }
@@ -102,7 +102,7 @@ pub fn ensure_worktree(repo_path: &Path, rev: &str) -> Result<PathBuf> {
             ])
             .current_dir(repo_path)
             .status()
-            .context("failed to run git worktree add")?;
+            .wrap_err("failed to run git worktree add")?;
         if !status.success() {
             bail!(
                 "git worktree add failed for {} in {}",

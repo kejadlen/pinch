@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use color_eyre::eyre::{Context, Result, bail, eyre};
+use color_eyre::eyre::{Result, WrapErr, bail, eyre};
 use serde::Deserialize;
 
 const DEFAULT_PATH: &str = ".claude-plugin/marketplace.json";
@@ -41,7 +41,7 @@ pub fn find_plugin_source(
     let contents = fs_err::read_to_string(&manifest_path)?;
 
     let marketplace: Marketplace = serde_json::from_str(&contents)
-        .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
+        .wrap_err_with(|| format!("failed to parse {}", manifest_path.display()))?;
 
     let plugin = marketplace
         .plugins

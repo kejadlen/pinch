@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
-use color_eyre::eyre::eyre;
-use color_eyre::eyre::{Context, Result, bail};
+use color_eyre::eyre::{Result, WrapErr, bail, eyre};
 use serde::Deserialize;
 
 #[derive(Debug, Clone)]
@@ -43,7 +42,7 @@ pub fn load() -> Result<Vec<Plugin>> {
         let path = entry.path();
         let contents = fs_err::read_to_string(&path)?;
         let file: ConfigFile = serde_yml::from_str(&contents)
-            .with_context(|| format!("failed to parse {}", path.display()))?;
+            .wrap_err_with(|| format!("failed to parse {}", path.display()))?;
 
         let marketplaces = &file.marketplaces;
 
