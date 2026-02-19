@@ -64,15 +64,12 @@ plugins:
   gh-pr:
     marketplace: my-skills
     version: v1.2.0               # override the marketplace default
-
-  one-off-skill:
-    src: https://github.com/other/repo   # standalone plugin, no marketplace
-    version: main
 ```
 
-Plugins can reference a named marketplace (inheriting `src` and `version`) or
-specify `src`/`version` directly. The plugin path within the repo is discovered
-from `.claude-plugin/marketplace.json` (or the marketplace's `manifest` override).
+Every plugin references a named marketplace (inheriting `src` and `version`).
+A plugin can override `version` to pin a different branch or tag. The plugin
+path within the repo is discovered from `.claude-plugin/marketplace.json`
+(or the marketplace's `manifest` override).
 
 Removing a skill is done by removing it from the config and re-running
 `pinch install`.

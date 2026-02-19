@@ -124,7 +124,7 @@ fn do_update(names: &[String]) -> Result<()> {
         // Create worktree to read marketplace.json and discover skill path
         let wt_path = git::ensure_worktree(&repo_path, &rev)?;
         let source =
-            marketplace::find_plugin_source(&wt_path, &plugin.name, plugin.marketplace.as_deref())?;
+            marketplace::find_plugin_source(&wt_path, &plugin.name, plugin.manifest.as_deref())?;
         let path = source.trim_start_matches("./").to_string();
         info!("  found at {}", path);
 

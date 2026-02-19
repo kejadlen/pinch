@@ -11,7 +11,7 @@ pub struct Plugin {
     pub version: String,
     /// Path to marketplace.json within the repo.
     /// Defaults to `.claude-plugin/marketplace.json`.
-    pub marketplace: Option<String>,
+    pub manifest: Option<String>,
 }
 
 pub fn load() -> Result<Vec<Plugin>> {
@@ -44,7 +44,6 @@ pub fn load() -> Result<Vec<Plugin>> {
         let file: ConfigFile = serde_yml::from_str(&contents)
             .with_context(|| format!("failed to parse {}", path.display()))?;
 
-        // Marketplaces are scoped to this file
         let marketplaces = &file.marketplaces;
 
         for (name, entry) in file.plugins {
@@ -56,41 +55,20 @@ pub fn load() -> Result<Vec<Plugin>> {
                 );
             }
 
-            let (src, version, marketplace_path) = match entry.marketplace {
-                Some(mkt_name) => {
-                    let mkt = marketplaces.get(&mkt_name).ok_or_else(|| {
-                        color_eyre::eyre::eyre!(
-                            "plugin '{}' references unknown marketplace '{}' (in {})",
-                            name,
-                            mkt_name,
-                            path.display()
-                        )
-                    })?;
-                    (
-                        mkt.src.clone(),
-                        entry.version.unwrap_or_else(|| mkt.version.clone()),
-                        mkt.manifest.clone(),
-                    )
-                }
-                None => {
-                    let src = entry.src.ok_or_else(|| {
-                        color_eyre::eyre::eyre!(
-                            "plugin '{}': must specify either 'src' or 'marketplace'",
-                            name
-                        )
-                    })?;
-                    let version = entry.version.ok_or_else(|| {
-                        color_eyre::eyre::eyre!("plugin '{}': 'version' is required", name)
-                    })?;
-                    (src, version, None)
-                }
-            };
+            let mkt = marketplaces.get(&entry.marketplace).ok_or_else(|| {
+                color_eyre::eyre::eyre!(
+                    "plugin '{}' references unknown marketplace '{}' (in {})",
+                    name,
+                    entry.marketplace,
+                    path.display()
+                )
+            })?;
 
             plugins.push(Plugin {
                 name,
-                src,
-                version,
-                marketplace: marketplace_path,
+                src: mkt.src.clone(),
+                version: entry.version.unwrap_or_else(|| mkt.version.clone()),
+                manifest: mkt.manifest.clone(),
             });
         }
     }
@@ -107,9 +85,8 @@ struct MarketplaceEntry {
 
 #[derive(Deserialize)]
 struct PluginEntry {
-    src: Option<String>,
+    marketplace: String,
     version: Option<String>,
-    marketplace: Option<String>,
 }
 
 #[derive(Deserialize)]
