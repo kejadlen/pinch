@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::{Context, Result, eyre};
 use serde::Deserialize;
 
 const DEFAULT_PATH: &str = ".claude-plugin/marketplace.json";
@@ -35,7 +35,7 @@ pub fn find_plugin_source(
         .find(|mp| mp.name == plugin_name)
         .map(|mp| mp.source.clone())
         .ok_or_else(|| {
-            color_eyre::eyre::eyre!(
+            eyre!(
                 "plugin '{}' not found in {}",
                 plugin_name,
                 manifest_path.display()

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
+use color_eyre::eyre::eyre;
 use color_eyre::eyre::{Context, Result, bail};
 use serde::Deserialize;
 
@@ -56,7 +57,7 @@ pub fn load() -> Result<Vec<Plugin>> {
             }
 
             let mkt = marketplaces.get(&entry.marketplace).ok_or_else(|| {
-                color_eyre::eyre::eyre!(
+                eyre!(
                     "plugin '{}' references unknown marketplace '{}' (in {})",
                     name,
                     entry.marketplace,
