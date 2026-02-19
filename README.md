@@ -42,20 +42,28 @@ Config files live in `~/.config/pinch/conf.d/`. All `.yml` files are merged
 alphabetically. Duplicate skill names across files are a hard error.
 
 ```yml
+marketplaces:
+  my-skills:
+    src: https://github.com/user/skills-repo
+    ref: main                 # default ref for plugins from this marketplace
+    manifest: custom/path/marketplace.json  # optional, defaults to .claude-plugin/marketplace.json
+
 plugins:
   jj:
-    src: https://github.com/user/skills-repo
-    ref: main                 # branch or tag; resolved to a commit SHA in lockfile
+    marketplace: my-skills    # inherits src, ref, and manifest from the marketplace
 
   gh-pr:
-    src: https://github.com/user/skills-repo
-    ref: v1.2.0
-    marketplace: custom/path/marketplace.json  # optional override
+    marketplace: my-skills
+    ref: v1.2.0               # override the marketplace default ref
+
+  one-off-skill:
+    src: https://github.com/other/repo   # standalone plugin, no marketplace
+    ref: main
 ```
 
-The plugin path within the repo is discovered from the marketplace manifest
-(`.claude-plugin/marketplace.json` by default). The `marketplace` field lets you
-override this path per plugin.
+Plugins can reference a named marketplace (inheriting `src` and `ref`) or
+specify `src`/`ref` directly. The plugin path within the repo is discovered
+from `.claude-plugin/marketplace.json` (or the marketplace's `manifest` override).
 
 Removing a skill is done by removing it from the config and re-running
 `pinch install`.

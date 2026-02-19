@@ -9,7 +9,7 @@ pub struct Plugin {
     pub name: String,
     pub src: String,
     pub r#ref: String,
-    /// Override path to marketplace.json within the repo.
+    /// Path to marketplace.json within the repo.
     /// Defaults to `.claude-plugin/marketplace.json`.
     pub marketplace: Option<String>,
 }
@@ -36,27 +36,35 @@ pub fn load() -> Result<Vec<Plugin>> {
         bail!("no .yml files found in {}", config_dir.display());
     }
 
+    let mut marketplaces: BTreeMap<String, MarketplaceEntry> = BTreeMap::new();
     let mut plugins = Vec::new();
     let mut seen_names = HashSet::new();
 
-    for entry in entries {
+    // First pass: collect all marketplaces
+    for entry in &entries {
         let path = entry.path();
         let contents = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
+        let file: ConfigFile = serde_yml::from_str(&contents)
+            .with_context(|| format!("failed to parse {}", path.display()))?;
 
-        #[derive(Deserialize)]
-        struct PluginEntry {
-            src: String,
-            r#ref: String,
-            marketplace: Option<String>,
+        for (name, mkt) in file.marketplaces {
+            if marketplaces.contains_key(&name) {
+                bail!(
+                    "duplicate marketplace '{}' (found in {})",
+                    name,
+                    path.display()
+                );
+            }
+            marketplaces.insert(name, mkt);
         }
+    }
 
-        #[derive(Deserialize)]
-        struct ConfigFile {
-            #[serde(default)]
-            plugins: BTreeMap<String, PluginEntry>,
-        }
-
+    // Second pass: resolve plugins
+    for entry in &entries {
+        let path = entry.path();
+        let contents = std::fs::read_to_string(&path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
         let file: ConfigFile = serde_yml::from_str(&contents)
             .with_context(|| format!("failed to parse {}", path.display()))?;
 
@@ -68,14 +76,70 @@ pub fn load() -> Result<Vec<Plugin>> {
                     path.display()
                 );
             }
+
+            let (src, r#ref, marketplace_path) = match entry.marketplace {
+                Some(mkt_name) => {
+                    let mkt = marketplaces.get(&mkt_name).ok_or_else(|| {
+                        color_eyre::eyre::eyre!(
+                            "plugin '{}' references unknown marketplace '{}'",
+                            name,
+                            mkt_name
+                        )
+                    })?;
+                    (
+                        mkt.src.clone(),
+                        entry.r#ref.unwrap_or_else(|| mkt.r#ref.clone()),
+                        mkt.manifest.clone(),
+                    )
+                }
+                None => {
+                    let src = entry.src.ok_or_else(|| {
+                        color_eyre::eyre::eyre!(
+                            "plugin '{}': must specify either 'src' or 'marketplace'",
+                            name
+                        )
+                    })?;
+                    let r#ref = entry.r#ref.ok_or_else(|| {
+                        color_eyre::eyre::eyre!("plugin '{}': 'ref' is required", name)
+                    })?;
+                    (src, r#ref, None)
+                }
+            };
+
             plugins.push(Plugin {
                 name,
-                src: entry.src,
-                r#ref: entry.r#ref,
-                marketplace: entry.marketplace,
+                src,
+                r#ref,
+                marketplace: marketplace_path,
             });
         }
     }
 
     Ok(plugins)
+}
+
+#[derive(Deserialize)]
+struct MarketplaceEntry {
+    src: String,
+    r#ref: String,
+    /// Override path to marketplace.json within the repo.
+    manifest: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct PluginEntry {
+    /// Git repo URL. Required if no marketplace.
+    src: Option<String>,
+    /// Git ref. Required if no marketplace (optional override with marketplace).
+    r#ref: Option<String>,
+    /// Name of a marketplace defined in the config.
+    marketplace: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ConfigFile {
+    #[serde(default)]
+    marketplaces: BTreeMap<String, MarketplaceEntry>,
+    #[serde(default)]
+    plugins: BTreeMap<String, PluginEntry>,
 }
