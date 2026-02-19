@@ -73,16 +73,14 @@ fn main() -> Result<()> {
 }
 
 fn do_update(names: &[String]) -> Result<()> {
-    let config = config::load().context("failed to load config")?;
+    let all_plugins = config::load().context("failed to load config")?;
 
     let plugins: Vec<_> = if names.is_empty() {
-        config.plugins.clone()
+        all_plugins
     } else {
-        config
-            .plugins
-            .iter()
+        all_plugins
+            .into_iter()
             .filter(|p| names.contains(&p.name))
-            .cloned()
             .collect()
     };
 

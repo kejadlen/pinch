@@ -4,14 +4,9 @@ use std::collections::HashSet;
 use color_eyre::eyre::{Context, Result, bail};
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
-pub struct ConfigFile {
-    #[serde(default)]
-    pub plugins: BTreeMap<String, PluginEntry>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct PluginEntry {
+#[derive(Debug, Clone)]
+pub struct Plugin {
+    pub name: String,
     pub src: String,
     pub r#ref: String,
     /// Override path to marketplace.json within the repo.
@@ -19,20 +14,7 @@ pub struct PluginEntry {
     pub marketplace: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Plugin {
-    pub name: String,
-    pub src: String,
-    pub r#ref: String,
-    pub marketplace: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct Config {
-    pub plugins: Vec<Plugin>,
-}
-
-pub fn load() -> Result<Config> {
+pub fn load() -> Result<Vec<Plugin>> {
     let config_dir = crate::paths::config_dir();
 
     if !config_dir.is_dir() {
@@ -61,10 +43,24 @@ pub fn load() -> Result<Config> {
         let path = entry.path();
         let contents = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
+
+        #[derive(Deserialize)]
+        struct PluginEntry {
+            src: String,
+            r#ref: String,
+            marketplace: Option<String>,
+        }
+
+        #[derive(Deserialize)]
+        struct ConfigFile {
+            #[serde(default)]
+            plugins: BTreeMap<String, PluginEntry>,
+        }
+
         let file: ConfigFile = serde_yml::from_str(&contents)
             .with_context(|| format!("failed to parse {}", path.display()))?;
 
-        for (name, plugin) in file.plugins {
+        for (name, entry) in file.plugins {
             if !seen_names.insert(name.clone()) {
                 bail!(
                     "duplicate plugin name '{}' (found in {})",
@@ -74,12 +70,12 @@ pub fn load() -> Result<Config> {
             }
             plugins.push(Plugin {
                 name,
-                src: plugin.src,
-                r#ref: plugin.r#ref,
-                marketplace: plugin.marketplace,
+                src: entry.src,
+                r#ref: entry.r#ref,
+                marketplace: entry.marketplace,
             });
         }
     }
 
-    Ok(Config { plugins })
+    Ok(plugins)
 }
