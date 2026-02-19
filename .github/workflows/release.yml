@@ -28,18 +28,6 @@ jobs:
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "version=${CALVER}+${SHORT_SHA}" >> $GITHUB_OUTPUT
 
-      - name: Merge into release branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          if git fetch origin release 2>/dev/null; then
-            git checkout -B release origin/release
-            git merge --no-ff -X theirs main -m "Release ${{ steps.version.outputs.version }}"
-          else
-            git checkout -b release
-          fi
-
       - name: Build
         run: |
           PINCH_VERSION="${{ steps.version.outputs.version }}" cargo build --release
@@ -49,7 +37,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           git tag "v${VERSION}"
-          git push origin release "v${VERSION}"
+          git push origin "v${VERSION}"
 
           gh release create "v${VERSION}" \
             --title "v${VERSION}" \
