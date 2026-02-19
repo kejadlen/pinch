@@ -171,91 +171,24 @@ fn do_install() -> Result<()> {
             );
         }
 
-        // Reject unsupported plugin types
-        for unsupported in ["agents", "hooks"] {
-            if plugin_root.join(unsupported).is_dir() {
-                bail!(
-                    "plugin '{}': contains '{}/' — only skills and commands are supported",
-                    name,
-                    unsupported
-                );
-            }
-        }
-        for unsupported in [".mcp.json", ".lsp.json"] {
-            if plugin_root.join(unsupported).is_file() {
-                bail!(
-                    "plugin '{}': contains '{}' — only skills and commands are supported",
-                    name,
-                    unsupported
-                );
-            }
-        }
+        reject_unsupported(name, &plugin_root)?;
 
-        // Symlink each skill under skills/
-        let skills_source = plugin_root.join("skills");
-        if skills_source.is_dir() {
-            for entry in fs_err::read_dir(&skills_source)? {
-                let entry = entry?;
-                if !entry.path().is_dir() {
-                    continue;
-                }
+        let has_skills = symlink_entries(
+            &plugin_root,
+            "skills",
+            &skills_dir,
+            true,
+            &mut installed_skills,
+        )?;
+        let has_commands = symlink_entries(
+            &plugin_root,
+            "commands",
+            &commands_dir,
+            false,
+            &mut installed_commands,
+        )?;
 
-                let skill_name = entry.file_name();
-                let symlink_path = skills_dir.join(&skill_name);
-
-                // Remove existing symlink if present
-                if symlink_path.symlink_metadata().is_ok() {
-                    fs_err::remove_file(&symlink_path)?;
-                }
-
-                std::os::unix::fs::symlink(entry.path(), &symlink_path).with_context(|| {
-                    format!(
-                        "failed to create symlink: {} -> {}",
-                        symlink_path.display(),
-                        entry.path().display()
-                    )
-                })?;
-
-                info!(
-                    "installed skill {} -> {}",
-                    skill_name.to_string_lossy(),
-                    entry.path().display()
-                );
-                installed_skills.insert(skill_name);
-            }
-        }
-
-        // Symlink each command under commands/
-        let commands_source = plugin_root.join("commands");
-        if commands_source.is_dir() {
-            for entry in fs_err::read_dir(&commands_source)? {
-                let entry = entry?;
-                let command_name = entry.file_name();
-                let symlink_path = commands_dir.join(&command_name);
-
-                // Remove existing symlink if present
-                if symlink_path.symlink_metadata().is_ok() {
-                    fs_err::remove_file(&symlink_path)?;
-                }
-
-                std::os::unix::fs::symlink(entry.path(), &symlink_path).with_context(|| {
-                    format!(
-                        "failed to create symlink: {} -> {}",
-                        symlink_path.display(),
-                        entry.path().display()
-                    )
-                })?;
-
-                info!(
-                    "installed command {} -> {}",
-                    command_name.to_string_lossy(),
-                    entry.path().display()
-                );
-                installed_commands.insert(command_name);
-            }
-        }
-
-        if !skills_source.is_dir() && !commands_source.is_dir() {
+        if !has_skills && !has_commands {
             bail!(
                 "plugin '{}': no skills/ or commands/ directory in '{}'",
                 name,
@@ -264,51 +197,108 @@ fn do_install() -> Result<()> {
         }
     }
 
-    // Clean up stale skill symlinks
-    for entry in fs_err::read_dir(&skills_dir)? {
-        let entry = entry?;
-        let path = entry.path();
+    remove_stale_symlinks(&skills_dir, &cache_dir, &installed_skills, "skill")?;
+    remove_stale_symlinks(&commands_dir, &cache_dir, &installed_commands, "command")?;
 
-        if !path.symlink_metadata()?.file_type().is_symlink() {
-            continue;
-        }
-
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-
-        if let Ok(target) = fs_err::read_link(&path)
-            && target.starts_with(&cache_dir)
-            && !installed_skills.contains(&name)
-        {
-            fs_err::remove_file(&path)?;
-            info!("removed stale skill symlink: {}", name_str);
-        }
-    }
-
-    // Clean up stale command symlinks
-    for entry in fs_err::read_dir(&commands_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if !path.symlink_metadata()?.file_type().is_symlink() {
-            continue;
-        }
-
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-
-        if let Ok(target) = fs_err::read_link(&path)
-            && target.starts_with(&cache_dir)
-            && !installed_commands.contains(&name)
-        {
-            fs_err::remove_file(&path)?;
-            info!("removed stale command symlink: {}", name_str);
-        }
-    }
-
-    // Clean up stale worktrees and unused repos
     git::prune(&repos_dir, &lockfile)?;
 
     info!("install complete");
+    Ok(())
+}
+
+/// Bail if the plugin contains types we don't support yet.
+fn reject_unsupported(name: &str, plugin_root: &std::path::Path) -> Result<()> {
+    for unsupported in ["agents", "hooks"] {
+        if plugin_root.join(unsupported).is_dir() {
+            bail!(
+                "plugin '{}': contains '{}/' — only skills and commands are supported",
+                name,
+                unsupported
+            );
+        }
+    }
+    for unsupported in [".mcp.json", ".lsp.json"] {
+        if plugin_root.join(unsupported).is_file() {
+            bail!(
+                "plugin '{}': contains '{}' — only skills and commands are supported",
+                name,
+                unsupported
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Symlink entries from `plugin_root/<subdir>/` into `target_dir`.
+/// When `dirs_only` is true, non-directory entries are skipped (skills).
+/// Returns whether the source directory existed.
+fn symlink_entries(
+    plugin_root: &std::path::Path,
+    subdir: &str,
+    target_dir: &std::path::Path,
+    dirs_only: bool,
+    installed: &mut std::collections::HashSet<std::ffi::OsString>,
+) -> Result<bool> {
+    let source = plugin_root.join(subdir);
+    if !source.is_dir() {
+        return Ok(false);
+    }
+
+    for entry in fs_err::read_dir(&source)? {
+        let entry = entry?;
+        if dirs_only && !entry.path().is_dir() {
+            continue;
+        }
+
+        let name = entry.file_name();
+        let symlink_path = target_dir.join(&name);
+
+        if symlink_path.symlink_metadata().is_ok() {
+            fs_err::remove_file(&symlink_path)?;
+        }
+
+        std::os::unix::fs::symlink(entry.path(), &symlink_path).with_context(|| {
+            format!(
+                "failed to create symlink: {} -> {}",
+                symlink_path.display(),
+                entry.path().display()
+            )
+        })?;
+
+        info!(
+            "installed {subdir} {} -> {}",
+            name.to_string_lossy(),
+            entry.path().display()
+        );
+        installed.insert(name);
+    }
+
+    Ok(true)
+}
+
+/// Remove symlinks in `dir` that point into `cache_dir` but aren't in `keep`.
+fn remove_stale_symlinks(
+    dir: &std::path::Path,
+    cache_dir: &std::path::Path,
+    keep: &std::collections::HashSet<std::ffi::OsString>,
+    kind: &str,
+) -> Result<()> {
+    for entry in fs_err::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if !path.symlink_metadata()?.file_type().is_symlink() {
+            continue;
+        }
+
+        let name = entry.file_name();
+        if let Ok(target) = fs_err::read_link(&path)
+            && target.starts_with(cache_dir)
+            && !keep.contains(&name)
+        {
+            fs_err::remove_file(&path)?;
+            info!("removed stale {kind} symlink: {}", name.to_string_lossy());
+        }
+    }
     Ok(())
 }
