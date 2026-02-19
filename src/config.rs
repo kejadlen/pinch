@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
-use color_eyre::eyre::{Result, WrapErr, bail, eyre};
+use color_eyre::eyre::{Result, WrapErr, bail};
 use serde::Deserialize;
 
 #[derive(Debug, Clone)]
@@ -44,32 +44,23 @@ pub fn load() -> Result<Vec<Plugin>> {
         let file: ConfigFile = serde_yml::from_str(&contents)
             .wrap_err_with(|| format!("failed to parse {}", path.display()))?;
 
-        let marketplaces = &file.marketplaces;
+        for (_mkt_name, mkt) in file.marketplaces {
+            for name in mkt.plugins {
+                if !seen_names.insert(name.clone()) {
+                    bail!(
+                        "duplicate plugin name '{}' (found in {})",
+                        name,
+                        path.display()
+                    );
+                }
 
-        for (name, entry) in file.plugins {
-            if !seen_names.insert(name.clone()) {
-                bail!(
-                    "duplicate plugin name '{}' (found in {})",
+                plugins.push(Plugin {
                     name,
-                    path.display()
-                );
+                    src: mkt.src.clone(),
+                    version: mkt.version.clone(),
+                    manifest: mkt.manifest.clone(),
+                });
             }
-
-            let mkt = marketplaces.get(&entry.marketplace).ok_or_else(|| {
-                eyre!(
-                    "plugin '{}' references unknown marketplace '{}' (in {})",
-                    name,
-                    entry.marketplace,
-                    path.display()
-                )
-            })?;
-
-            plugins.push(Plugin {
-                name,
-                src: mkt.src.clone(),
-                version: mkt.version.clone(),
-                manifest: mkt.manifest.clone(),
-            });
         }
     }
 
@@ -81,17 +72,12 @@ struct MarketplaceEntry {
     src: String,
     version: String,
     manifest: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct PluginEntry {
-    marketplace: String,
+    #[serde(default)]
+    plugins: Vec<String>,
 }
 
 #[derive(Deserialize)]
 struct ConfigFile {
     #[serde(default)]
     marketplaces: BTreeMap<String, MarketplaceEntry>,
-    #[serde(default)]
-    plugins: BTreeMap<String, PluginEntry>,
 }
