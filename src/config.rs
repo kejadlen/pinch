@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone)]
 pub struct Plugin {
     pub name: String,
+    pub marketplace: String,
     pub src: String,
     pub version: String,
     /// Path to marketplace.json within the repo.
@@ -44,7 +45,7 @@ pub fn load() -> Result<Vec<Plugin>> {
         let file: ConfigFile = serde_yml::from_str(&contents)
             .wrap_err_with(|| format!("failed to parse {}", path.display()))?;
 
-        for (_mkt_name, mkt) in file.marketplaces {
+        for (mkt_name, mkt) in file.marketplaces {
             for name in mkt.plugins {
                 if !seen_names.insert(name.clone()) {
                     bail!(
@@ -56,6 +57,7 @@ pub fn load() -> Result<Vec<Plugin>> {
 
                 plugins.push(Plugin {
                     name,
+                    marketplace: mkt_name.clone(),
                     src: mkt.src.clone(),
                     version: mkt.version.clone(),
                     manifest: mkt.manifest.clone(),
