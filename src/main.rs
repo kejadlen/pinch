@@ -135,6 +135,7 @@ fn do_update(names: &[String]) -> Result<()> {
         lockfile.plugins.insert(
             plugin.name.clone(),
             lockfile::LockedPlugin {
+                marketplace: plugin.marketplace.clone(),
                 src: plugin.src.clone(),
                 path,
                 rev,

@@ -11,6 +11,7 @@ pub struct Lockfile {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockedPlugin {
+    pub marketplace: String,
     pub src: String,
     pub path: String,
     pub rev: String,
