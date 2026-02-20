@@ -4,15 +4,9 @@ use std::process::Command;
 use color_eyre::eyre::{Result, WrapErr, bail};
 use tracing::info;
 
-/// Derive a bare repo path from a remote URL.
-/// e.g. "https://github.com/user/repo" -> repos_dir/github.com/user/repo.git
-pub fn repo_path(repos_dir: &Path, src: &str) -> PathBuf {
-    let url = src
-        .strip_prefix("https://")
-        .or_else(|| src.strip_prefix("http://"))
-        .unwrap_or(src)
-        .trim_end_matches(".git");
-    repos_dir.join(format!("{url}.git"))
+/// Repo path within the marketplaces directory, keyed by marketplace name.
+pub fn repo_path(repos_dir: &Path, marketplace: &str) -> PathBuf {
+    repos_dir.join(marketplace)
 }
 
 /// Path to a worktree for a specific revision.
@@ -22,7 +16,7 @@ pub fn worktree_path(repo_path: &Path, rev: &str) -> PathBuf {
 }
 
 pub fn clone_or_fetch(repo_path: &Path, src: &str) -> Result<()> {
-    if repo_path.join("HEAD").is_file() {
+    if repo_path.join(".git").is_dir() {
         let status = Command::new("git")
             .args(["fetch", "--quiet", "origin"])
             .current_dir(repo_path)
@@ -34,7 +28,7 @@ pub fn clone_or_fetch(repo_path: &Path, src: &str) -> Result<()> {
     } else {
         fs_err::create_dir_all(repo_path)?;
         let status = Command::new("git")
-            .args(["clone", "--quiet", "--bare", src, "."])
+            .args(["clone", "--quiet", src, "."])
             .current_dir(repo_path)
             .status()
             .wrap_err("failed to run git clone")?;
@@ -115,20 +109,17 @@ pub fn ensure_worktree(repo_path: &Path, rev: &str) -> Result<PathBuf> {
     Ok(wt_path)
 }
 
-/// Remove worktrees and repos that aren't referenced by the lockfile.
 pub fn prune(repos_dir: &Path, lockfile: &crate::lockfile::Lockfile) -> Result<()> {
     use std::collections::{HashMap, HashSet};
 
-    // Build a map: repo_path -> set of used rev prefixes
     let mut used: HashMap<PathBuf, HashSet<String>> = HashMap::new();
     for plugin in lockfile.plugins.values() {
-        let rp = repo_path(repos_dir, &plugin.src);
+        let rp = repo_path(repos_dir, &plugin.marketplace);
         used.entry(rp)
             .or_default()
             .insert(plugin.rev[..12].to_string());
     }
 
-    // Walk all bare repos: prune stale worktrees, remove unused repos
     visit_repos(repos_dir, &used)?;
 
     Ok(())
@@ -177,8 +168,8 @@ fn visit_repos(
                     info!("pruned worktree: {}", wt_path.display());
                 }
             }
-        } else if path.join("HEAD").is_file() {
-            // This is a bare repo — remove it if no plugins reference it
+        } else if path.join(".git").is_dir() {
+            // This is a regular clone — remove it if no plugins reference it
             if !used.contains_key(&path) {
                 fs_err::remove_dir_all(&path)?;
                 info!("removed unused repo: {}", path.display());

@@ -14,10 +14,22 @@ pub fn config_dir() -> PathBuf {
         .join("conf.d")
 }
 
-pub fn repos_dir() -> Result<PathBuf> {
+pub fn plugins_dir() -> Result<PathBuf> {
     base_dirs()
-        .create_cache_directory("repos")
-        .wrap_err("failed to create repos dir")
+        .create_data_directory("plugins")
+        .wrap_err("failed to create plugins dir")
+}
+
+pub fn repos_dir() -> Result<PathBuf> {
+    let dir = plugins_dir()?.join("marketplaces");
+    fs_err::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+pub fn plugin_cache_dir() -> Result<PathBuf> {
+    let dir = plugins_dir()?.join("cache");
+    fs_err::create_dir_all(&dir)?;
+    Ok(dir)
 }
 
 pub fn lockfile_path() -> Result<PathBuf> {
@@ -36,12 +48,6 @@ pub fn commands_dir() -> Result<PathBuf> {
     let path = home_dir().join(".claude").join("commands");
     fs_err::create_dir_all(&path)?;
     Ok(path)
-}
-
-pub fn cache_dir() -> PathBuf {
-    base_dirs()
-        .get_cache_home()
-        .expect("XDG cache home not set")
 }
 
 fn home_dir() -> PathBuf {

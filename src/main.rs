@@ -120,7 +120,7 @@ fn do_update(names: &[String]) -> Result<()> {
 
     for plugin in &plugins {
         info!("updating {}...", plugin.name);
-        let repo_path = git::repo_path(&repos_dir, &plugin.src);
+        let repo_path = git::repo_path(&repos_dir, &plugin.marketplace);
         git::clone_or_fetch(&repo_path, &plugin.src)?;
         let rev = git::resolve_ref(&repo_path, &plugin.version)?;
         info!("  {} -> {}", plugin.version, &rev[..12]);
@@ -154,12 +154,11 @@ fn do_install() -> Result<()> {
     let repos_dir = paths::repos_dir()?;
     let skills_dir = paths::skills_dir()?;
     let commands_dir = paths::commands_dir()?;
-    let cache_dir = paths::cache_dir();
     let mut installed_skills = std::collections::HashSet::new();
     let mut installed_commands = std::collections::HashSet::new();
 
     for (name, plugin) in &lockfile.plugins {
-        let repo_path = git::repo_path(&repos_dir, &plugin.src);
+        let repo_path = git::repo_path(&repos_dir, &plugin.marketplace);
         let wt_path = git::ensure_worktree(&repo_path, &plugin.rev)?;
 
         let plugin_root = wt_path.join(&plugin.path);
@@ -198,8 +197,8 @@ fn do_install() -> Result<()> {
         }
     }
 
-    remove_stale_symlinks(&skills_dir, &cache_dir, &installed_skills, "skill")?;
-    remove_stale_symlinks(&commands_dir, &cache_dir, &installed_commands, "command")?;
+    remove_stale_symlinks(&skills_dir, &repos_dir, &installed_skills, "skill")?;
+    remove_stale_symlinks(&commands_dir, &repos_dir, &installed_commands, "command")?;
 
     git::prune(&repos_dir, &lockfile)?;
 
