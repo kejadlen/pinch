@@ -247,6 +247,10 @@ fn do_install() -> Result<()> {
     // Remove stale cache symlinks
     remove_stale_cache_entries(&plugin_cache_dir, &installed_cache_entries)?;
 
+    // Write metadata JSON files for Claude Code
+    write_installed_plugins_json(&lockfile, &plugin_cache_dir)?;
+    write_known_marketplaces_json(&lockfile, &repos_dir)?;
+
     git::prune(&repos_dir, &lockfile)?;
 
     info!("install complete");
@@ -406,5 +410,97 @@ fn remove_stale_cache_entries(
         }
     }
 
+    Ok(())
+}
+
+fn write_installed_plugins_json(
+    lockfile: &lockfile::Lockfile,
+    plugin_cache_dir: &std::path::Path,
+) -> Result<()> {
+    use std::collections::BTreeMap;
+
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+    let mut plugins: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
+    for (name, plugin) in &lockfile.plugins {
+        let key = format!("{}@{}", name, plugin.marketplace);
+        let install_path = plugin_cache_dir
+            .join(&plugin.marketplace)
+            .join(name)
+            .join(&plugin.rev[..12]);
+
+        plugins.insert(
+            key,
+            vec![serde_json::json!({
+                "scope": "user",
+                "installPath": install_path.to_string_lossy(),
+                "version": &plugin.rev[..12],
+                "installedAt": &now,
+                "lastUpdated": &now,
+                "gitCommitSha": &plugin.rev,
+            })],
+        );
+    }
+
+    let doc = serde_json::json!({
+        "version": 2,
+        "plugins": plugins,
+    });
+
+    let plugins_dir = paths::plugins_dir()?;
+    let path = plugins_dir.join("installed_plugins.json");
+    let contents = serde_json::to_string_pretty(&doc)
+        .wrap_err("failed to serialize installed_plugins.json")?;
+    fs_err::write(&path, contents)?;
+    info!("wrote {}", path.display());
+    Ok(())
+}
+
+fn write_known_marketplaces_json(
+    lockfile: &lockfile::Lockfile,
+    repos_dir: &std::path::Path,
+) -> Result<()> {
+    use std::collections::BTreeMap;
+
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+    let mut marketplaces: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+    for plugin in lockfile.plugins.values() {
+        if marketplaces.contains_key(&plugin.marketplace) {
+            continue;
+        }
+
+        let install_location = repos_dir.join(&plugin.marketplace);
+
+        // Derive github source from URL if possible
+        let source = if let Some(path) = plugin.src.strip_prefix("https://github.com/") {
+            let repo = path.trim_end_matches(".git");
+            serde_json::json!({
+                "source": "github",
+                "repo": repo,
+            })
+        } else {
+            serde_json::json!({
+                "source": "git",
+                "url": &plugin.src,
+            })
+        };
+
+        marketplaces.insert(
+            plugin.marketplace.clone(),
+            serde_json::json!({
+                "source": source,
+                "installLocation": install_location.to_string_lossy(),
+                "lastUpdated": &now,
+            }),
+        );
+    }
+
+    let plugins_dir = paths::plugins_dir()?;
+    let path = plugins_dir.join("known_marketplaces.json");
+    let contents = serde_json::to_string_pretty(&marketplaces)
+        .wrap_err("failed to serialize known_marketplaces.json")?;
+    fs_err::write(&path, contents)?;
+    info!("wrote {}", path.display());
     Ok(())
 }
