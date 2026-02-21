@@ -200,6 +200,53 @@ fn do_install() -> Result<()> {
     remove_stale_symlinks(&skills_dir, &repos_dir, &installed_skills, "skill")?;
     remove_stale_symlinks(&commands_dir, &repos_dir, &installed_commands, "command")?;
 
+    // Build plugins/cache/ symlinks for Claude Code
+    let plugin_cache_dir = paths::plugin_cache_dir()?;
+    let mut installed_cache_entries = std::collections::HashSet::new();
+
+    for (name, plugin) in &lockfile.plugins {
+        let repo_path = git::repo_path(&repos_dir, &plugin.marketplace);
+        let wt_path = git::worktree_path(&repo_path, &plugin.rev);
+        let plugin_root = wt_path.join(&plugin.path);
+
+        // cache/<marketplace>/<plugin>/<rev_short>/
+        let cache_mkt_dir = plugin_cache_dir.join(&plugin.marketplace);
+        let cache_plugin_dir = cache_mkt_dir.join(name);
+        let cache_version_dir = cache_plugin_dir.join(&plugin.rev[..12]);
+
+        fs_err::create_dir_all(&cache_plugin_dir)?;
+
+        // Track for stale cleanup
+        installed_cache_entries.insert(cache_version_dir.clone());
+
+        // Skip if already correct
+        if let Ok(existing) = fs_err::read_link(&cache_version_dir) {
+            if existing == plugin_root {
+                info!("up-to-date cache entry {}/{}", plugin.marketplace, name);
+                continue;
+            }
+            fs_err::remove_file(&cache_version_dir)?;
+        }
+
+        std::os::unix::fs::symlink(&plugin_root, &cache_version_dir).wrap_err_with(|| {
+            format!(
+                "failed to create cache symlink: {} -> {}",
+                cache_version_dir.display(),
+                plugin_root.display()
+            )
+        })?;
+
+        info!(
+            "cache {}/{} -> {}",
+            plugin.marketplace,
+            name,
+            plugin_root.display()
+        );
+    }
+
+    // Remove stale cache symlinks
+    remove_stale_cache_entries(&plugin_cache_dir, &installed_cache_entries)?;
+
     git::prune(&repos_dir, &lockfile)?;
 
     info!("install complete");
@@ -307,5 +354,57 @@ fn remove_stale_symlinks(
             info!("removed stale {kind} symlink: {}", name.to_string_lossy());
         }
     }
+    Ok(())
+}
+
+/// Remove cache/<mkt>/<plugin>/<version> symlinks not in `keep`,
+/// then clean up empty parent directories.
+fn remove_stale_cache_entries(
+    cache_dir: &std::path::Path,
+    keep: &std::collections::HashSet<std::path::PathBuf>,
+) -> Result<()> {
+    if !cache_dir.is_dir() {
+        return Ok(());
+    }
+
+    // Walk cache/<mkt>/<plugin>/ looking for version symlinks
+    for mkt_entry in fs_err::read_dir(cache_dir)? {
+        let mkt_entry = mkt_entry?;
+        let mkt_path = mkt_entry.path();
+        if !mkt_path.is_dir() {
+            continue;
+        }
+
+        for plugin_entry in fs_err::read_dir(&mkt_path)? {
+            let plugin_entry = plugin_entry?;
+            let plugin_path = plugin_entry.path();
+            if !plugin_path.is_dir() && !plugin_path.symlink_metadata()?.file_type().is_symlink() {
+                continue;
+            }
+
+            for version_entry in fs_err::read_dir(&plugin_path)? {
+                let version_entry = version_entry?;
+                let version_path = version_entry.path();
+
+                if version_path.symlink_metadata()?.file_type().is_symlink()
+                    && !keep.contains(&version_path)
+                {
+                    fs_err::remove_file(&version_path)?;
+                    info!("removed stale cache symlink: {}", version_path.display());
+                }
+            }
+
+            // Remove plugin dir if empty
+            if fs_err::read_dir(&plugin_path)?.next().is_none() {
+                fs_err::remove_dir(&plugin_path)?;
+            }
+        }
+
+        // Remove marketplace dir if empty
+        if fs_err::read_dir(&mkt_path)?.next().is_none() {
+            fs_err::remove_dir(&mkt_path)?;
+        }
+    }
+
     Ok(())
 }
