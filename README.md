@@ -32,26 +32,26 @@ multiple versions can coexist. Individual skills are symlinked into
 ~/.local/share/pinch/      # managed by pinch
   plugins/
     marketplaces/
-      github.com-user-skills-repo/     # regular clone (not bare)
+      my-skills/                       # regular clone (not bare)
         pinch-worktrees/
           abc123def456/                # worktree at rev abc123def456
           def789012345/                # worktree at rev def789012345
     cache/
-      github.com-user-skills-repo/     # marketplace name
+      my-skills/
         jj/
-          abc123d/ -> ../../marketplaces/github.com-user-skills-repo/pinch-worktrees/abc123def456/plugins/jj
+          abc123def456/ -> ../../marketplaces/my-skills/pinch-worktrees/abc123def456/plugins/jj
         gh-pr/
-          abc123d/ -> ../../marketplaces/github.com-user-skills-repo/pinch-worktrees/abc123def456/plugins/gh-pr
+          abc123def456/ -> ../../marketplaces/my-skills/pinch-worktrees/abc123def456/plugins/gh-pr
     installed_plugins.json
     known_marketplaces.json
   pinch-lock.yml          # lockfile
 
 ~/.claude/skills/
-  jj -> ~/.local/share/pinch/plugins/cache/github.com-user-skills-repo/jj/abc123d/skills/jj
-  gh-pr -> ~/.local/share/pinch/plugins/cache/github.com-user-skills-repo/gh-pr/abc123d/skills/gh-pr
+  jj -> ~/.local/share/pinch/plugins/cache/my-skills/jj/abc123def456/skills/jj
+  gh-pr -> ~/.local/share/pinch/plugins/cache/my-skills/gh-pr/abc123def456/skills/gh-pr
 
 ~/.claude/commands/
-  deploy.md -> ~/.local/share/pinch/plugins/cache/github.com-user-skills-repo/ops/abc123d/commands/deploy.md
+  deploy.md -> ~/.local/share/pinch/plugins/cache/my-skills/ops/abc123def456/commands/deploy.md
 ```
 
 ## Config (manifest)
@@ -88,13 +88,13 @@ SHA for each skill. `install` reads from the lockfile; `update` writes to it.
 ```yml
 plugins:
   jj:
-    marketplace: github.com-user-skills-repo
+    marketplace: my-skills
     src: https://github.com/user/skills-repo
     path: skills/jj
     rev: abc123def456...     # resolved commit SHA
 
   gh-pr:
-    marketplace: github.com-user-skills-repo
+    marketplace: my-skills
     src: https://github.com/user/skills-repo
     path: skills/gh-pr
     rev: abc123def456...
