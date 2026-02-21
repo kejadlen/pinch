@@ -136,7 +136,6 @@ fn do_update(names: &[String]) -> Result<()> {
             plugin.name.clone(),
             lockfile::LockedPlugin {
                 marketplace: plugin.marketplace.clone(),
-                src: plugin.src.clone(),
                 path,
                 rev,
             },
@@ -248,8 +247,9 @@ fn do_install() -> Result<()> {
     remove_stale_cache_entries(&plugin_cache_dir, &installed_cache_entries)?;
 
     // Write metadata JSON files for Claude Code
+    let all_plugins = config::load().wrap_err("failed to load config")?;
     write_installed_plugins_json(&lockfile, &plugin_cache_dir)?;
-    write_known_marketplaces_json(&lockfile, &repos_dir)?;
+    write_known_marketplaces_json(&lockfile, &all_plugins, &repos_dir)?;
 
     git::prune(&repos_dir, &lockfile)?;
 
@@ -458,11 +458,18 @@ fn write_installed_plugins_json(
 
 fn write_known_marketplaces_json(
     lockfile: &lockfile::Lockfile,
+    config_plugins: &[config::Plugin],
     repos_dir: &std::path::Path,
 ) -> Result<()> {
     use std::collections::BTreeMap;
 
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+    // Build marketplace -> src URL map from config
+    let mkt_srcs: BTreeMap<&str, &str> = config_plugins
+        .iter()
+        .map(|p| (p.marketplace.as_str(), p.src.as_str()))
+        .collect();
 
     let mut marketplaces: BTreeMap<String, serde_json::Value> = BTreeMap::new();
     for plugin in lockfile.plugins.values() {
@@ -472,8 +479,13 @@ fn write_known_marketplaces_json(
 
         let install_location = repos_dir.join(&plugin.marketplace);
 
+        let src = match mkt_srcs.get(plugin.marketplace.as_str()) {
+            Some(src) => src,
+            None => continue,
+        };
+
         // Derive github source from URL if possible
-        let source = if let Some(path) = plugin.src.strip_prefix("https://github.com/") {
+        let source = if let Some(path) = src.strip_prefix("https://github.com/") {
             let repo = path.trim_end_matches(".git");
             serde_json::json!({
                 "source": "github",
@@ -482,7 +494,7 @@ fn write_known_marketplaces_json(
         } else {
             serde_json::json!({
                 "source": "git",
-                "url": &plugin.src,
+                "url": src,
             })
         };
 

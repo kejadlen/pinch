@@ -89,13 +89,11 @@ SHA for each skill. `install` reads from the lockfile; `update` writes to it.
 plugins:
   jj:
     marketplace: my-skills
-    src: https://github.com/user/skills-repo
     path: skills/jj
     rev: abc123def456...     # resolved commit SHA
 
   gh-pr:
     marketplace: my-skills
-    src: https://github.com/user/skills-repo
     path: skills/gh-pr
     rev: abc123def456...
 ```

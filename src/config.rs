@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 use color_eyre::eyre::{Result, WrapErr, bail};
@@ -38,6 +39,7 @@ pub fn load() -> Result<Vec<Plugin>> {
 
     let mut plugins = Vec::new();
     let mut seen_names = HashSet::new();
+    let mut seen_marketplaces: HashMap<String, String> = HashMap::new();
 
     for entry in &entries {
         let path = entry.path();
@@ -46,6 +48,20 @@ pub fn load() -> Result<Vec<Plugin>> {
             .wrap_err_with(|| format!("failed to parse {}", path.display()))?;
 
         for (mkt_name, mkt) in file.marketplaces {
+            if let Some(existing_src) = seen_marketplaces.get(&mkt_name) {
+                if existing_src != &mkt.src {
+                    bail!(
+                        "marketplace '{}' has conflicting sources:\n  {}\n  {}\n(found in {})",
+                        mkt_name,
+                        existing_src,
+                        mkt.src,
+                        path.display()
+                    );
+                }
+            } else {
+                seen_marketplaces.insert(mkt_name.clone(), mkt.src.clone());
+            }
+
             for name in mkt.plugins {
                 if !seen_names.insert(name.clone()) {
                     bail!(
