@@ -16,11 +16,10 @@ A **command** is a slash command — an `.md` file (or directory) that Claude Co
 discovers by scanning `~/.claude/commands/`.
 
 A **marketplace** is a git repo that contains one or more plugins, described by
-a `.claude-plugin/marketplace.json` manifest.
-
-A **package** is a git repo that contains one or more skills and/or commands. The repo is cloned
-(bare) into pinch's cache; worktrees are created per revision so multiple
-versions can coexist. Individual skills are symlinked into `~/.claude/skills/`.
+a `.claude-plugin/marketplace.json` manifest. The repo is cloned (regular, not
+bare) into pinch's plugins directory; worktrees are created per revision so
+multiple versions can coexist. Individual skills are symlinked into
+`~/.claude/skills/`.
 
 ## Directory layout
 
@@ -30,23 +29,29 @@ versions can coexist. Individual skills are symlinked into `~/.claude/skills/`.
     base.yml              # any number of .yml files, merged alphabetically
     work.yml
 
-~/.cache/pinch/            # managed by pinch
-  repos/
-    github.com/
-      user/repo.git/                   # bare clone
+~/.local/share/pinch/      # managed by pinch
+  plugins/
+    marketplaces/
+      github.com-user-skills-repo/     # regular clone (not bare)
         pinch-worktrees/
           abc123def456/                # worktree at rev abc123def456
           def789012345/                # worktree at rev def789012345
-
-~/.local/share/pinch/
+    cache/
+      github.com-user-skills-repo/     # marketplace name
+        jj/
+          abc123d/ -> ../../marketplaces/github.com-user-skills-repo/pinch-worktrees/abc123def456/plugins/jj
+        gh-pr/
+          abc123d/ -> ../../marketplaces/github.com-user-skills-repo/pinch-worktrees/abc123def456/plugins/gh-pr
+    installed_plugins.json
+    known_marketplaces.json
   pinch-lock.yml          # lockfile
 
 ~/.claude/skills/
-  jj -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/abc123def456/plugins/jj/skills/jj
-  gh-pr -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/def789012345/plugins/gh-pr/skills/gh-pr
+  jj -> ~/.local/share/pinch/plugins/cache/github.com-user-skills-repo/jj/abc123d/skills/jj
+  gh-pr -> ~/.local/share/pinch/plugins/cache/github.com-user-skills-repo/gh-pr/abc123d/skills/gh-pr
 
 ~/.claude/commands/
-  deploy.md -> ~/.cache/pinch/repos/github.com/user/repo.git/pinch-worktrees/abc123def456/plugins/ops/commands/deploy.md
+  deploy.md -> ~/.local/share/pinch/plugins/cache/github.com-user-skills-repo/ops/abc123d/commands/deploy.md
 ```
 
 ## Config (manifest)
@@ -83,11 +88,13 @@ SHA for each skill. `install` reads from the lockfile; `update` writes to it.
 ```yml
 plugins:
   jj:
+    marketplace: github.com-user-skills-repo
     src: https://github.com/user/skills-repo
     path: skills/jj
     rev: abc123def456...     # resolved commit SHA
 
   gh-pr:
+    marketplace: github.com-user-skills-repo
     src: https://github.com/user/skills-repo
     path: skills/gh-pr
     rev: abc123def456...
@@ -101,9 +108,9 @@ Reads the **lockfile** (not the config). For each entry:
 
 1. Ensures the repo is cloned/fetched and checked out at the locked `rev`.
 2. Creates symlinks from `~/.claude/skills/<name>` and `~/.claude/commands/<name>`
-   → the corresponding paths in the cached repo.
+   → the corresponding paths in the plugin cache.
 3. Removes any symlinks in `~/.claude/skills/` and `~/.claude/commands/` that
-   point into `~/.cache/pinch/` but are no longer in the lockfile.
+   point into `~/.local/share/pinch/plugins/` but are no longer in the lockfile.
 
 Idempotent. Safe to run repeatedly.
 
